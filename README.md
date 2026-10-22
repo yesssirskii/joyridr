@@ -23,8 +23,11 @@ dotnet run --project joyridr
 In Development the API **creates the database, applies migrations, and seeds demo data** on startup.
 
 - API: http://localhost:5105
-- Interactive docs (try every endpoint): http://localhost:5105/scalar
+- Swagger UI: http://localhost:5105/swagger
+- Scalar (a more modern take on the same docs): http://localhost:5105/scalar
 - OpenAPI JSON: http://localhost:5105/openapi/v1.json
+
+To call protected endpoints from Swagger: run `POST /api/auth/login`, copy `accessToken`, click **Authorize** and paste it (without the word "Bearer"). Swagger remembers it across reloads.
 
 Demo accounts (password `Password123!`):
 
@@ -130,7 +133,7 @@ All the timings (lead time, durations, response window, free-cancellation window
 
 ## API map
 
-All endpoints except `/api/auth/*` need `Authorization: Bearer <accessToken>`. Full request/response shapes are in Scalar.
+All endpoints except `/api/auth/*` need `Authorization: Bearer <accessToken>`. Full request/response shapes are in Swagger/Scalar.
 
 | Area | Endpoints |
 |---|---|

@@ -14,6 +14,7 @@ using Joyridr.Features.Rides;
 using Joyridr.Features.Schedule;
 using Joyridr.Features.Users;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -75,19 +76,31 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddValidation();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
-builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+builder.Services.AddOpenApi(options =>
 {
-    document.Components ??= new OpenApiComponents();
-    document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
-    document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+    options.AddDocumentTransformer((document, _, _) =>
     {
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-    };
-    document.Security = [new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference("Bearer", document)] = [] }];
-    return Task.CompletedTask;
-}));
+        document.Info.Title = "JOYRIDR API";
+        document.Info.Description = "Log in via /api/auth/login, then click Authorize and paste the accessToken.";
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+        };
+        return Task.CompletedTask;
+    });
+    // Only endpoints that need a token get the lock icon in Swagger/Scalar.
+    options.AddOperationTransformer((operation, context, _) =>
+    {
+        var metadata = context.Description.ActionDescriptor.EndpointMetadata;
+        if (metadata.OfType<IAuthorizeData>().Any() && !metadata.OfType<IAllowAnonymous>().Any())
+            operation.Security = [new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference("Bearer", context.Document)] = [] }];
+        return Task.CompletedTask;
+    });
+});
 
 // ---- App services ----
 builder.Services.AddSingleton(TimeProvider.System);
@@ -129,6 +142,12 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference(); // interactive API docs at /scalar
+    app.UseSwaggerUI(options =>  // and the classic Swagger UI at /swagger, same OpenAPI document
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "JOYRIDR API v1");
+        options.DocumentTitle = "JOYRIDR API";
+        options.EnablePersistAuthorization(); // keep the pasted token across page reloads
+    });
 }
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
