@@ -1,6 +1,17 @@
-@joyridr_HostAddress = http://localhost:5105
+# Try the API from Rider / VS Code REST Client. Start the API first (dotnet run).
+@host = http://localhost:5105
 
-GET {{joyridr_HostAddress}}/weatherforecast/
-Accept: application/json
+### Log in as the demo rider
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
 
-###
+{ "email": "rider@joyridr.dev", "password": "Password123!" }
+
+### Cars near Zagreb city centre
+GET {{host}}/api/cars/nearby?latitude=45.8131&longitude=15.9775&radiusKm=25
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### My upcoming rides
+GET {{host}}/api/rides?view=upcoming
+Authorization: Bearer {{login.response.body.accessToken}}
