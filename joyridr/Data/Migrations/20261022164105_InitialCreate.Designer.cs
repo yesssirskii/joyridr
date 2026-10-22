@@ -26,7 +26,7 @@ namespace Joyridr.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "btree_gist");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Joyridr.Domain.Car", b =>
+            modelBuilder.Entity("Joyridr.Models.Car", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -156,7 +156,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.CarPhoto", b =>
+            modelBuilder.Entity("Joyridr.Models.CarPhoto", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -190,7 +190,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("car_photos", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DeviceToken", b =>
+            modelBuilder.Entity("Joyridr.Models.DeviceToken", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -234,7 +234,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("device_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DriverTimeOff", b =>
+            modelBuilder.Entity("Joyridr.Models.DriverTimeOff", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -270,7 +270,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DriverWeeklyAvailability", b =>
+            modelBuilder.Entity("Joyridr.Models.DriverWeeklyAvailability", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -305,7 +305,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.JoyDriverProfile", b =>
+            modelBuilder.Entity("Joyridr.Models.JoyDriverProfile", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -376,7 +376,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.JoyRiderProfile", b =>
+            modelBuilder.Entity("Joyridr.Models.JoyRiderProfile", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -404,7 +404,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("joy_riders", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Notification", b =>
+            modelBuilder.Entity("Joyridr.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -458,7 +458,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("notifications", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Payment", b =>
+            modelBuilder.Entity("Joyridr.Models.Payment", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -541,7 +541,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("payments", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.RefreshToken", b =>
+            modelBuilder.Entity("Joyridr.Models.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -594,7 +594,7 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Review", b =>
+            modelBuilder.Entity("Joyridr.Models.Review", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -645,7 +645,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Ride", b =>
+            modelBuilder.Entity("Joyridr.Models.Ride", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -793,7 +793,7 @@ namespace Joyridr.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.User", b =>
+            modelBuilder.Entity("Joyridr.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -858,9 +858,9 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("users", (string)null);
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Car", b =>
+            modelBuilder.Entity("Joyridr.Models.Car", b =>
                 {
-                    b.HasOne("Joyridr.Domain.JoyDriverProfile", "Driver")
+                    b.HasOne("Joyridr.Models.JoyDriverProfile", "Driver")
                         .WithMany("Cars")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -870,9 +870,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.CarPhoto", b =>
+            modelBuilder.Entity("Joyridr.Models.CarPhoto", b =>
                 {
-                    b.HasOne("Joyridr.Domain.Car", "Car")
+                    b.HasOne("Joyridr.Models.Car", "Car")
                         .WithMany("Photos")
                         .HasForeignKey("CarId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -882,9 +882,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Car");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DeviceToken", b =>
+            modelBuilder.Entity("Joyridr.Models.DeviceToken", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "User")
+                    b.HasOne("Joyridr.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -894,9 +894,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DriverTimeOff", b =>
+            modelBuilder.Entity("Joyridr.Models.DriverTimeOff", b =>
                 {
-                    b.HasOne("Joyridr.Domain.JoyDriverProfile", "Driver")
+                    b.HasOne("Joyridr.Models.JoyDriverProfile", "Driver")
                         .WithMany("TimeOff")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -906,9 +906,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.DriverWeeklyAvailability", b =>
+            modelBuilder.Entity("Joyridr.Models.DriverWeeklyAvailability", b =>
                 {
-                    b.HasOne("Joyridr.Domain.JoyDriverProfile", "Driver")
+                    b.HasOne("Joyridr.Models.JoyDriverProfile", "Driver")
                         .WithMany("WeeklyAvailability")
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -918,11 +918,11 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Driver");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.JoyDriverProfile", b =>
+            modelBuilder.Entity("Joyridr.Models.JoyDriverProfile", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "User")
+                    b.HasOne("Joyridr.Models.User", "User")
                         .WithOne("DriverProfile")
-                        .HasForeignKey("Joyridr.Domain.JoyDriverProfile", "UserId")
+                        .HasForeignKey("Joyridr.Models.JoyDriverProfile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_joy_drivers_users_user_id");
@@ -930,11 +930,11 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.JoyRiderProfile", b =>
+            modelBuilder.Entity("Joyridr.Models.JoyRiderProfile", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "User")
+                    b.HasOne("Joyridr.Models.User", "User")
                         .WithOne("RiderProfile")
-                        .HasForeignKey("Joyridr.Domain.JoyRiderProfile", "UserId")
+                        .HasForeignKey("Joyridr.Models.JoyRiderProfile", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_joy_riders_users_user_id");
@@ -942,9 +942,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Notification", b =>
+            modelBuilder.Entity("Joyridr.Models.Notification", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "User")
+                    b.HasOne("Joyridr.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -954,11 +954,11 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Payment", b =>
+            modelBuilder.Entity("Joyridr.Models.Payment", b =>
                 {
-                    b.HasOne("Joyridr.Domain.Ride", "Ride")
+                    b.HasOne("Joyridr.Models.Ride", "Ride")
                         .WithOne("Payment")
-                        .HasForeignKey("Joyridr.Domain.Payment", "RideId")
+                        .HasForeignKey("Joyridr.Models.Payment", "RideId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_payments_rides_ride_id");
@@ -966,9 +966,9 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Ride");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.RefreshToken", b =>
+            modelBuilder.Entity("Joyridr.Models.RefreshToken", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "User")
+                    b.HasOne("Joyridr.Models.User", "User")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -978,23 +978,23 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Review", b =>
+            modelBuilder.Entity("Joyridr.Models.Review", b =>
                 {
-                    b.HasOne("Joyridr.Domain.User", "Author")
+                    b.HasOne("Joyridr.Models.User", "Author")
                         .WithMany()
                         .HasForeignKey("AuthorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_reviews_users_author_id");
 
-                    b.HasOne("Joyridr.Domain.Ride", "Ride")
+                    b.HasOne("Joyridr.Models.Ride", "Ride")
                         .WithMany("Reviews")
                         .HasForeignKey("RideId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_reviews_rides_ride_id");
 
-                    b.HasOne("Joyridr.Domain.User", "Subject")
+                    b.HasOne("Joyridr.Models.User", "Subject")
                         .WithMany()
                         .HasForeignKey("SubjectId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1008,23 +1008,23 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Subject");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Ride", b =>
+            modelBuilder.Entity("Joyridr.Models.Ride", b =>
                 {
-                    b.HasOne("Joyridr.Domain.Car", "Car")
+                    b.HasOne("Joyridr.Models.Car", "Car")
                         .WithMany()
                         .HasForeignKey("CarId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_rides_cars_car_id");
 
-                    b.HasOne("Joyridr.Domain.User", "Driver")
+                    b.HasOne("Joyridr.Models.User", "Driver")
                         .WithMany()
                         .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_rides_users_driver_id");
 
-                    b.HasOne("Joyridr.Domain.User", "Rider")
+                    b.HasOne("Joyridr.Models.User", "Rider")
                         .WithMany()
                         .HasForeignKey("RiderId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -1038,12 +1038,12 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Rider");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Car", b =>
+            modelBuilder.Entity("Joyridr.Models.Car", b =>
                 {
                     b.Navigation("Photos");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.JoyDriverProfile", b =>
+            modelBuilder.Entity("Joyridr.Models.JoyDriverProfile", b =>
                 {
                     b.Navigation("Cars");
 
@@ -1052,14 +1052,14 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("WeeklyAvailability");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.Ride", b =>
+            modelBuilder.Entity("Joyridr.Models.Ride", b =>
                 {
                     b.Navigation("Payment");
 
                     b.Navigation("Reviews");
                 });
 
-            modelBuilder.Entity("Joyridr.Domain.User", b =>
+            modelBuilder.Entity("Joyridr.Models.User", b =>
                 {
                     b.Navigation("DriverProfile");
 

@@ -1,4 +1,4 @@
-using Joyridr.Domain;
+using Joyridr.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

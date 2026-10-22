@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Joyridr.Domain;
+using Joyridr.Models.Enums;
 
 namespace Joyridr.Common;
 

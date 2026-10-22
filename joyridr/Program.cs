@@ -1,18 +1,12 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 using Joyridr.Common;
+using Joyridr.Controllers;
 using Joyridr.Data;
-using Joyridr.Domain;
-using Joyridr.Features.Admin;
-using Joyridr.Features.Auth;
-using Joyridr.Features.Cars;
-using Joyridr.Features.Drivers;
-using Joyridr.Features.Notifications;
-using Joyridr.Features.Payments;
-using Joyridr.Features.Rides;
-using Joyridr.Features.Schedule;
-using Joyridr.Features.Users;
+using Joyridr.Models;
+using Joyridr.Models.Enums;
+using Joyridr.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -61,19 +55,18 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     var permitsPerMinute = config.GetValue("RateLimiting:AuthPermitsPerMinute", 10);
-    options.AddPolicy(AuthEndpoints.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+    options.AddPolicy(AuthController.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = permitsPerMinute, Window = TimeSpan.FromMinutes(1) }));
 });
 
 // ---- API plumbing ----
+// Enums go over the wire as camelCase strings ("joyRider", "awaitingPayment"), which map
+// straight onto Swift enums with String raw values. Set for both MVC and the OpenAPI generator.
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    // Enums go over the wire as camelCase strings ("joyRider", "awaitingPayment"), which map
-    // straight onto Swift enums with String raw values.
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-});
-builder.Services.AddValidation();
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi(options =>
@@ -110,9 +103,14 @@ builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
 builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<DriverService>();
+builder.Services.AddScoped<CarService>();
 builder.Services.AddScoped<AvailabilityService>();
-builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<RideService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<AdminService>();
 if (config.GetValue("BackgroundJobs:Enabled", true))
     builder.Services.AddHostedService<RideExpiryWorker>();
 
@@ -150,15 +148,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("Health");
-app.MapAuthEndpoints();
-app.MapMeEndpoints();
-app.MapDriverEndpoints();
-app.MapScheduleEndpoints();
-app.MapCarEndpoints();
-app.MapRideEndpoints();
-app.MapNotificationEndpoints();
-app.MapAdminEndpoints();
+app.MapControllers();
 
 app.Run();
 

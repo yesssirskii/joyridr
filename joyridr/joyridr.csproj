@@ -6,6 +6,9 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>Joyridr</RootNamespace>
         <UserSecretsId>joyridr-api</UserSecretsId>
+        <!-- /// comments on controller actions become endpoint descriptions in Swagger/Scalar -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

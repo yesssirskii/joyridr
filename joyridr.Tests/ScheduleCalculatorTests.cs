@@ -1,4 +1,5 @@
-using Joyridr.Features.Schedule;
+using Joyridr.DTOs;
+using Joyridr.Services;
 
 namespace Joyridr.Tests;
 

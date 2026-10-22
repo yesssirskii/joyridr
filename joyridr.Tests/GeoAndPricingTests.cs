@@ -1,5 +1,5 @@
 using Joyridr.Common;
-using Joyridr.Features.Rides;
+using Joyridr.Services;
 
 namespace Joyridr.Tests;
 

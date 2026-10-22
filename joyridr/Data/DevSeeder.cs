@@ -1,4 +1,5 @@
-using Joyridr.Domain;
+using Joyridr.Models;
+using Joyridr.Models.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
