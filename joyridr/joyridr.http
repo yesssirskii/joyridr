@@ -1,0 +1,6 @@
+@joyridr_HostAddress = http://localhost:5105
+
+GET {{joyridr_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
