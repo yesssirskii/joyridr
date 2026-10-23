@@ -91,4 +91,38 @@ public class ScheduleCalculatorTests
 
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void FindNextSlot_returns_the_first_free_slot_today()
+    {
+        var weekly = new Dictionary<DayOfWeek, List<TimeWindow>> { [SummerDay.DayOfWeek] = [Window(10, 0, 12, 0)] };
+
+        var next = ScheduleCalculator.FindNextSlot(SummerDay, Zagreb, weekly, [], earliestStart: Utc(8, 40), 30, 30, days: 7);
+
+        Assert.Equal(Utc(9, 0), next?.StartsAt); // 11:00 local; 10:00 and 10:30 are too soon
+    }
+
+    [Fact]
+    public void FindNextSlot_skips_to_a_later_day_when_today_is_full_or_off()
+    {
+        var tomorrow = SummerDay.AddDays(1);
+        var weekly = new Dictionary<DayOfWeek, List<TimeWindow>>
+        {
+            [SummerDay.DayOfWeek] = [Window(10, 0, 11, 0)],
+            [tomorrow.DayOfWeek] = [Window(15, 0, 18, 0)],
+        };
+        TimeSlot[] busy = [new(Utc(8, 0), Utc(9, 0))]; // today's only window is booked
+
+        var next = ScheduleCalculator.FindNextSlot(SummerDay, Zagreb, weekly, busy, LongAgo, 30, 30, days: 7);
+
+        Assert.Equal(new DateTimeOffset(2026, 7, 16, 13, 0, 0, TimeSpan.Zero), next?.StartsAt); // tomorrow 15:00 local
+    }
+
+    [Fact]
+    public void FindNextSlot_returns_null_when_nothing_is_free_in_the_horizon()
+    {
+        var next = ScheduleCalculator.FindNextSlot(SummerDay, Zagreb, new Dictionary<DayOfWeek, List<TimeWindow>>(), [], LongAgo, 30, 30, days: 7);
+
+        Assert.Null(next);
+    }
 }

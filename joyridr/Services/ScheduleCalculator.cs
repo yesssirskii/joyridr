@@ -94,6 +94,32 @@ public static class ScheduleCalculator
         return null;
     }
 
+    /// <summary>
+    /// The first bookable slot from <paramref name="today"/> (a date in the driver's time zone) onwards,
+    /// looking at most <paramref name="days"/> days ahead. Null if the driver is fully booked or off.
+    /// </summary>
+    public static TimeSlot? FindNextSlot(
+        DateOnly today,
+        TimeZoneInfo timeZone,
+        IReadOnlyDictionary<DayOfWeek, List<TimeWindow>> weeklyWindows,
+        IReadOnlyCollection<TimeSlot> busy,
+        DateTimeOffset earliestStart,
+        int durationMinutes,
+        int stepMinutes,
+        int days)
+    {
+        for (var i = 0; i < days; i++)
+        {
+            var date = today.AddDays(i);
+            if (!weeklyWindows.TryGetValue(date.DayOfWeek, out var windows) || windows.Count == 0)
+                continue;
+            var first = GetSlots(date, timeZone, windows, busy, earliestStart, durationMinutes, stepMinutes).FirstOrDefault();
+            if (first is not null)
+                return first;
+        }
+        return null;
+    }
+
     public static bool IsOnGrid(TimeOnly time, int stepMinutes) =>
         time.Second == 0 && time.Millisecond == 0 && (time.Hour * 60 + time.Minute) % stepMinutes == 0;
 }

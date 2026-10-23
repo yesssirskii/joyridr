@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Joyridr.Services;
 
-public class CarService(AppDbContext db, IFileStorage storage, TimeProvider clock)
+public class CarService(AppDbContext db, IFileStorage storage, AvailabilityService availability, TimeProvider clock)
 {
     private const int MaxCarsPerDriver = 10;
     private const int MaxPhotosPerCar = 12;
@@ -46,15 +46,18 @@ public class CarService(AppDbContext db, IFileStorage storage, TimeProvider cloc
             .OrderBy(x => x.Distance)
             .ToList();
 
-        var items = results
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+        var pageResults = results.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var driverAvailability = await availability.GetAvailabilityAsync(pageResults.Select(x => x.Car.Driver).ToList(), ct);
+
+        var items = pageResults
             .Select(x => new NearbyCarDto(
                 CarSummaryDto.From(x.Car),
                 DriverSummaryDto.From(x.Car.Driver),
                 Math.Round(x.Distance, 1),
                 Math.Round(x.Car.Driver.BaseLatitude!.Value, 2),
-                Math.Round(x.Car.Driver.BaseLongitude!.Value, 2)))
+                Math.Round(x.Car.Driver.BaseLongitude!.Value, 2),
+                driverAvailability[x.Car.DriverId].IsAvailableToday,
+                driverAvailability[x.Car.DriverId].NextAvailableAt))
             .ToList();
 
         return new PagedResult<NearbyCarDto>(items, page, pageSize, results.Count);
