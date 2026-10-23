@@ -111,6 +111,7 @@ builder.Services.AddScoped<ScheduleService>();
 builder.Services.AddScoped<RideService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AdminService>();
+builder.Services.AddScoped<ChatService>();
 if (config.GetValue("BackgroundJobs:Enabled", true))
     builder.Services.AddHostedService<RideExpiryWorker>();
 

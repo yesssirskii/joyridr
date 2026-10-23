@@ -66,6 +66,24 @@ public static class DevSeeder
         };
 
         db.Users.AddRange(admin, rider, ivan, marko);
+
+        // A short chat so the inbox isn't empty; the rider has one unread reply.
+        var asked = DateTimeOffset.UtcNow.AddHours(-3);
+        var replied = asked.AddMinutes(12);
+        db.Conversations.Add(new Conversation
+        {
+            RiderId = rider.Id,
+            DriverId = ivan.Id,
+            LastMessageAt = replied,
+            RiderLastReadAt = asked,
+            DriverLastReadAt = replied,
+            Messages =
+            [
+                new ChatMessage { SenderId = rider.Id, Body = "Hi! Is the GT3 free this Saturday afternoon? It's for my birthday 🎉", CreatedAt = asked },
+                new ChatMessage { SenderId = ivan.Id, Body = "Hey Luka, happy early birthday! Yes, from 14:00. Book a slot and I'll confirm right away.", CreatedAt = replied },
+            ],
+        });
+
         await db.SaveChangesAsync();
         logger.LogInformation("Seeded development data. Log in as rider@joyridr.dev, driver@joyridr.dev or admin@joyridr.dev with password {Password}", Password);
     }

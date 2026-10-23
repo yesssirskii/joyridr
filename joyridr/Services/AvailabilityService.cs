@@ -26,6 +26,52 @@ public class AvailabilityService(AppDbContext db, IOptions<RideOptions> rideOpti
         return ScheduleCalculator.GetSlots(date, timeZone, windows, busy, EarliestStart(now), durationMinutes, _options.StepMinutes);
     }
 
+    /// <summary>
+    /// When each driver can next take a (shortest possible) ride, looking a week ahead. Used for the
+    /// green "available" dot in the nearby list. Loads everything for all drivers in three queries.
+    /// </summary>
+    public async Task<Dictionary<Guid, DriverAvailability>> GetAvailabilityAsync(IReadOnlyCollection<JoyDriverProfile> drivers, CancellationToken ct)
+    {
+        const int daysAhead = 7;
+        var now = clock.GetUtcNow();
+        var horizon = now.AddDays(daysAhead + 1);
+        var ids = drivers.Select(d => d.UserId).Distinct().ToList();
+
+        var windows = await db.DriverWeeklyAvailability
+            .Where(a => ids.Contains(a.DriverId))
+            .ToListAsync(ct);
+        var rides = await db.Rides
+            .Where(r => ids.Contains(r.DriverId) && Ride.BlockingStatuses.Contains(r.Status) && r.EndsAt > now && r.StartsAt < horizon)
+            .Select(r => new { r.DriverId, r.StartsAt, r.EndsAt })
+            .ToListAsync(ct);
+        var timeOff = await db.DriverTimeOff
+            .Where(t => ids.Contains(t.DriverId) && t.EndsAt > now && t.StartsAt < horizon)
+            .Select(t => new { t.DriverId, t.StartsAt, t.EndsAt })
+            .ToListAsync(ct);
+
+        var result = new Dictionary<Guid, DriverAvailability>();
+        foreach (var driver in drivers.DistinctBy(d => d.UserId))
+        {
+            var timeZone = TimeZoneInfo.FindSystemTimeZoneById(driver.TimeZoneId);
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, timeZone).DateTime);
+            var weekly = windows
+                .Where(w => w.DriverId == driver.UserId)
+                .GroupBy(w => w.DayOfWeek)
+                .ToDictionary(g => g.Key, g => g.Select(w => new TimeWindow(w.StartTime, w.EndTime)).ToList());
+            List<TimeSlot> busy =
+            [
+                .. rides.Where(r => r.DriverId == driver.UserId).Select(r => new TimeSlot(r.StartsAt, r.EndsAt)),
+                .. timeOff.Where(t => t.DriverId == driver.UserId).Select(t => new TimeSlot(t.StartsAt, t.EndsAt)),
+            ];
+
+            var next = ScheduleCalculator.FindNextSlot(today, timeZone, weekly, busy, EarliestStart(now),
+                _options.MinDurationMinutes, _options.StepMinutes, daysAhead);
+            var isToday = next is not null && DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(next.StartsAt, timeZone).DateTime) == today;
+            result[driver.UserId] = new DriverAvailability(isToday, next?.StartsAt);
+        }
+        return result;
+    }
+
     /// <summary>Throws a 409 unless the driver can take a ride at exactly this time.</summary>
     public async Task EnsureBookableAsync(JoyDriverProfile driver, DateTimeOffset startsAt, int durationMinutes, CancellationToken ct)
     {
@@ -83,3 +129,6 @@ public class AvailabilityService(AppDbContext db, IOptions<RideOptions> rideOpti
         return [.. rides, .. timeOff];
     }
 }
+
+/// <summary>IsAvailableToday: at least one free slot left today (driver's time zone). NextAvailableAt: start of the next free slot within a week.</summary>
+public record DriverAvailability(bool IsAvailableToday, DateTimeOffset? NextAvailableAt);

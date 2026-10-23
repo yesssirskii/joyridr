@@ -187,6 +187,90 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("car_photos", (string)null);
                 });
 
+            modelBuilder.Entity("Joyridr.Models.ChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sender_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_chat_messages");
+
+                    b.HasIndex("SenderId")
+                        .HasDatabaseName("ix_chat_messages_sender_id");
+
+                    b.HasIndex("ConversationId", "CreatedAt")
+                        .HasDatabaseName("ix_chat_messages_conversation_id_created_at");
+
+                    b.ToTable("chat_messages", (string)null);
+                });
+
+            modelBuilder.Entity("Joyridr.Models.Conversation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DriverId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("driver_id");
+
+                    b.Property<DateTimeOffset?>("DriverLastReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("driver_last_read_at");
+
+                    b.Property<DateTimeOffset?>("LastMessageAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_message_at");
+
+                    b.Property<Guid>("RiderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rider_id");
+
+                    b.Property<DateTimeOffset?>("RiderLastReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("rider_last_read_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_conversations");
+
+                    b.HasIndex("DriverId", "LastMessageAt")
+                        .HasDatabaseName("ix_conversations_driver_id_last_message_at");
+
+                    b.HasIndex("RiderId", "DriverId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_conversations_rider_id_driver_id");
+
+                    b.ToTable("conversations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_conversations_participants", "rider_id <> driver_id");
+                        });
+                });
+
             modelBuilder.Entity("Joyridr.Models.DeviceToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -879,6 +963,48 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Car");
                 });
 
+            modelBuilder.Entity("Joyridr.Models.ChatMessage", b =>
+                {
+                    b.HasOne("Joyridr.Models.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_messages_conversations_conversation_id");
+
+                    b.HasOne("Joyridr.Models.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_chat_messages_users_sender_id");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("Joyridr.Models.Conversation", b =>
+                {
+                    b.HasOne("Joyridr.Models.User", "Driver")
+                        .WithMany()
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversations_users_driver_id");
+
+                    b.HasOne("Joyridr.Models.User", "Rider")
+                        .WithMany()
+                        .HasForeignKey("RiderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_conversations_users_rider_id");
+
+                    b.Navigation("Driver");
+
+                    b.Navigation("Rider");
+                });
+
             modelBuilder.Entity("Joyridr.Models.DeviceToken", b =>
                 {
                     b.HasOne("Joyridr.Models.User", "User")
@@ -1038,6 +1164,11 @@ namespace Joyridr.Data.Migrations
             modelBuilder.Entity("Joyridr.Models.Car", b =>
                 {
                     b.Navigation("Photos");
+                });
+
+            modelBuilder.Entity("Joyridr.Models.Conversation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("Joyridr.Models.JoyDriverProfile", b =>
