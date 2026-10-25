@@ -23,6 +23,8 @@ dotnet run --project joyridr
 
 In Development the API **creates the database, applies migrations, and seeds demo data** on startup.
 
+Swagger opens in your browser automatically when you start the API from Rider or with `dotnet watch --project joyridr` (which also hot-reloads code changes). Plain `dotnet run` doesn't open a browser.
+
 - API: http://localhost:5105
 - Swagger UI: http://localhost:5105/swagger
 - Scalar (a more modern take on the same docs): http://localhost:5105/scalar
