@@ -3,6 +3,7 @@
 Backend for **JOYRIDR**: like Uber/Bolt, but you book a *joyride* (djir) in someone's sports car or supercar.
 
 - **JoyRiders** browse cars near them, pick a time from the driver's schedule, choose where to meet, and pay.
+- Riders and drivers can **chat** with each other.
 - **JoyDrivers** list their cars (an admin approves each one, which keeps the platform sports/supercar only), set a weekly schedule, and confirm or decline ride requests.
 
 Stack: **.NET 10** Web API (controllers) · **EF Core 10** code-first with migrations · **PostgreSQL** · JWT access tokens + rotating refresh tokens.
@@ -21,6 +22,8 @@ dotnet run --project joyridr
 ```
 
 In Development the API **creates the database, applies migrations, and seeds demo data** on startup.
+
+Swagger opens in your browser automatically when you start the API from Rider or with `dotnet watch --project joyridr` (which also hot-reloads code changes). Plain `dotnet run` doesn't open a browser.
 
 - API: http://localhost:5105
 - Swagger UI: http://localhost:5105/swagger
@@ -92,6 +95,8 @@ erDiagram
     users ||--o{ rides : "drives (driver_id)"
     rides ||--|| payments : "paid by"
     rides ||--o{ reviews : "rated in"
+    users ||--o{ conversations : "rider_id / driver_id"
+    conversations ||--o{ chat_messages : contains
 ```
 
 Things the database enforces itself:
@@ -125,7 +130,10 @@ stateDiagram-v2
     Completed --> [*]: both sides can leave a review
 ```
 
-1. The rider searches `GET /api/cars/nearby`. Results are a **list sorted by distance** (each result also carries a rounded location, so a map can be added later without revealing anyone's home).
+1. The rider searches `GET /api/cars/nearby`. Results are a **list sorted by distance, one row per car** (a driver with two cars appears twice). Each result also has:
+   - `isAvailableToday`: the green dot, meaning the driver still has a free slot today in their time zone;
+   - `nextAvailableAt`: when their next free slot is (within a week), for "Available tomorrow 10:00";
+   - a rounded location, so a map can be added later without revealing anyone's home.
 2. The rider opens a car and loads bookable times with `GET /api/cars/{id}/slots?date=2026-10-25&durationMinutes=60`. Slots come from the driver's weekly schedule minus time off and existing rides, on a 30-minute grid in the driver's time zone.
 3. The rider books with `POST /api/rides`, choosing a meeting option:
    - `driverComesToRider`: the rider sends their location, which must be inside the driver's `serviceRadiusKm`.
@@ -148,6 +156,7 @@ All endpoints except `/api/auth/*` need `Authorization: Bearer <accessToken>`. F
 | Schedule | `GET/PUT /api/drivers/me/schedule` · `GET/POST/DELETE /api/drivers/me/time-off` · `GET /api/drivers/{id}/schedule` · `GET /api/cars/{id}/slots` |
 | Cars | `GET /api/cars/nearby` · `GET /api/cars/{id}` · `POST/PUT/DELETE /api/cars` · `POST/DELETE /api/cars/{id}/photos` |
 | Rides | `POST /api/rides` · `GET /api/rides?view=upcoming\|past\|requests` · `GET /api/rides/{id}` · `POST …/confirm` · `decline` · `cancel` · `start` · `complete` · `PUT …/meeting-point` · `POST …/reviews` |
+| Chat | `GET /api/conversations` · `GET …/unread-count` · `POST /api/conversations` · `GET …/{id}` · `GET/POST …/{id}/messages` · `POST …/{id}/read` |
 | Notifications | `GET /api/notifications` · `GET …/unread-count` · `POST …/{id}/read` · `POST …/read-all` · `POST/DELETE /api/devices` |
 | Admin | `GET /api/admin/cars?status=` · `POST …/{id}/approve` · `reject` · `POST /api/admin/drivers/{id}/verify` |
 
@@ -160,6 +169,17 @@ All endpoints except `/api/auth/*` need `Authorization: Bearer <accessToken>`. F
 - **Schedule times** (`startTime`/`endTime`) are `"HH:mm:ss"` strings in the driver's `timeZoneId`; `date` query parameters are `yyyy-MM-dd`.
 - **Errors** are RFC 7807 ProblemDetails: show `title` to the user and switch on `code` (e.g. `slot_unavailable`, `outside_service_area`, `email_taken`). Validation errors come back as `400` with an `errors` dictionary per field.
 - **Images**: `photoUrl` / `avatarUrl` are paths like `/uploads/cars/…jpg`; prefix them with the base URL (`AsyncImage(url: URL(string: path, relativeTo: baseURL))`). Upload with `multipart/form-data`, field name `file`.
+- **Chat**:
+  - **Inbox:** `GET /api/conversations` gives one row per chat, with `unreadCount`. `GET /api/conversations/unread-count` is the badge on the chat icon.
+  - **Opening a chat:** "Message driver" on a car screen calls `POST /api/conversations` with `{ "otherUserId": driver.id }`. It returns the existing chat if there is one.
+  - **On the chat screen:**
+    - load `GET …/{id}/messages` (newest page, oldest first);
+    - call `POST …/{id}/read`;
+    - then every ~3 s, poll `GET …/{id}/messages?afterMessageId=<newest id you have>` and append the results;
+    - to load older messages when the user scrolls up, pass `beforeMessageId=<oldest id you have>`.
+  - **Cursor:** use message *ids* as the cursor, not dates, so nothing is skipped or shown twice.
+  - **Bubbles:** `isMine` tells you which side to draw each bubble on.
+  - **Push:** messages that arrive while the chat is closed come as a push with `type = chatMessage` and a `conversationId`.
 - **Push**: after the user allows notifications, send the APNs token to `POST /api/devices` on every launch, and `DELETE /api/devices/{token}` on logout.
 
 Suggested screens: Login/Register (with role picker) · Rider: Nearby list → Car detail → Pick date/duration/slot → Meeting point → Pay/confirm → My rides → Ride detail → Review · Driver: Dashboard (requests) → Ride detail (confirm/decline/start/complete) → My cars (add/edit/photos) → Schedule & time off → Profile · Notifications.
@@ -169,4 +189,5 @@ Suggested screens: Login/Register (with role picker) · Rider: Nearby list → C
 - **Payments** use `FakePaymentProvider` (everything succeeds instantly). The real one is Stripe PaymentIntents with `capture_method=manual`, a webhook that moves rides from `AwaitingPayment` to `Requested`, and Stripe Connect to pay drivers out. `IPaymentProvider` is shaped for this.
 - **Push** uses `LoggingPushSender`; needs an APNs implementation.
 - **File storage** writes to local disk; swap `IFileStorage` for S3/R2/Azure Blob.
-- **Ideas** for later: Sign in with Apple, driver licence verification flow, in-app chat for agreed locations, buffer time between rides, auto-closing rides that were confirmed but never started, PostGIS once there are lots of cars, integration tests with Testcontainers, deployment.
+- **Chat** is plain HTTP + polling. Switch to SignalR/WebSockets if it ever feels laggy. There's no filtering of phone numbers yet, so riders could arrange rides off-platform.
+- **Ideas** for later: Sign in with Apple, driver licence verification flow, buffer time between rides, auto-closing rides that were confirmed but never started, PostGIS once there are lots of cars, integration tests with Testcontainers, deployment.

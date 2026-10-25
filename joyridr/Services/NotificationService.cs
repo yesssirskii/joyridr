@@ -29,27 +29,33 @@ public class NotificationService(AppDbContext db, IPushSender pushSender, TimePr
 
         foreach (var notification in toSend)
         {
-            try
+            var data = new Dictionary<string, string>
             {
-                var tokens = await db.DeviceTokens.Where(d => d.UserId == notification.UserId).Select(d => d.Token).ToListAsync(ct);
-                if (tokens.Count == 0)
-                    continue;
+                ["notificationId"] = notification.Id.ToString(),
+                ["type"] = notification.Type.ToString(),
+            };
+            if (notification.RideId is not null) data["rideId"] = notification.RideId.Value.ToString();
+            if (notification.CarId is not null) data["carId"] = notification.CarId.Value.ToString();
 
-                var data = new Dictionary<string, string>
-                {
-                    ["notificationId"] = notification.Id.ToString(),
-                    ["type"] = notification.Type.ToString(),
-                };
-                if (notification.RideId is not null) data["rideId"] = notification.RideId.Value.ToString();
-                if (notification.CarId is not null) data["carId"] = notification.CarId.Value.ToString();
+            await PushAsync(notification.UserId, notification.Title, notification.Body, data, ct);
+        }
+    }
 
-                await pushSender.SendAsync(tokens, notification.Title, notification.Body, data, ct);
-            }
-            catch (Exception ex)
-            {
-                // A failed push should never fail the request; the notification is still in the inbox.
-                logger.LogWarning(ex, "Failed to send push for notification {NotificationId}", notification.Id);
-            }
+    /// <summary>
+    /// Sends a push to all of the user's devices without creating an inbox notification
+    /// (used for chat messages). Never throws: a failed push must not fail the request.
+    /// </summary>
+    public async Task PushAsync(Guid userId, string title, string body, IReadOnlyDictionary<string, string> data, CancellationToken ct)
+    {
+        try
+        {
+            var tokens = await db.DeviceTokens.Where(d => d.UserId == userId).Select(d => d.Token).ToListAsync(ct);
+            if (tokens.Count > 0)
+                await pushSender.SendAsync(tokens, title, body, data, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Failed to send push to user {UserId}", userId);
         }
     }
 

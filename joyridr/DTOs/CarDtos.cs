@@ -30,15 +30,20 @@ public record CarSummaryDto(
 }
 
 /// <summary>
-/// One result of the nearby search. The location is the driver's base rounded to ~1 km, so it's
-/// good enough to put a pin on a map later without revealing anyone's home address.
+/// One result of the nearby search (one per car, so a driver with two cars appears twice).
+/// The location is the driver's base rounded to ~1 km, so it's good enough to put a pin on a map
+/// later without revealing anyone's home address.
 /// </summary>
 public record NearbyCarDto(
     CarSummaryDto Car,
     DriverSummaryDto Driver,
     double DistanceKm,
     double ApproximateLatitude,
-    double ApproximateLongitude);
+    double ApproximateLongitude,
+    // The green dot: the driver still has a free slot today (in their time zone).
+    bool IsAvailableToday,
+    // Start of the driver's next free slot within a week, e.g. for "Available tomorrow 10:00". Null if none.
+    DateTimeOffset? NextAvailableAt);
 
 public record CarDetailDto(
     Guid Id,
