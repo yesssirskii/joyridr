@@ -23,6 +23,8 @@ dotnet run --project joyridr
 
 In Development the API **creates the database, applies migrations, and seeds demo data** on startup.
 
+In Development the API listens on your whole network (`http://*:5105`), so the iOS app on a real iPhone on the same Wi-Fi can reach it at `http://<your-mac>.local:5105`. Avoid running it like that on public Wi-Fi.
+
 Swagger opens in your browser automatically when you start the API from Rider or with `dotnet watch --project joyridr` (which also hot-reloads code changes). Plain `dotnet run` doesn't open a browser.
 
 - API: http://localhost:5105
