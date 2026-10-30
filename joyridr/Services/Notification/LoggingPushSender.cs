@@ -1,3 +1,5 @@
+using Joyridr.Interfaces;
+
 namespace Joyridr.Services;
 
 /// <summary>Logs pushes instead of sending them. Replace with an APNs sender once the iOS app has push set up.</summary>

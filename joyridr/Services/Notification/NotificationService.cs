@@ -1,5 +1,6 @@
 using Joyridr.Data;
 using Joyridr.DTOs;
+using Joyridr.Interfaces;
 using Joyridr.Models;
 using Joyridr.Models.Enums;
 using Microsoft.EntityFrameworkCore;

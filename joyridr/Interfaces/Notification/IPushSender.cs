@@ -1,4 +1,4 @@
-namespace Joyridr.Services;
+namespace Joyridr.Interfaces;
 
 public interface IPushSender
 {

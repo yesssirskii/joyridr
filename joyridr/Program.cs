@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Joyridr.Common;
 using Joyridr.Controllers;
 using Joyridr.Data;
+using Joyridr.Interfaces;
 using Joyridr.Models;
 using Joyridr.Models.Enums;
 using Joyridr.Services;

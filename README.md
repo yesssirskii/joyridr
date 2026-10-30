@@ -61,6 +61,7 @@ dotnet test
 joyridr/
 ├── Controllers/   HTTP layer: routes, auth attributes, status codes. Thin: each action calls one service method.
 ├── Services/      Business logic (booking rules, payments, notifications, schedules...). Throws ApiException for errors.
+├── Interfaces/    Abstractions over outside systems (payments, push, file storage), swapped per environment in Program.cs
 ├── DTOs/          Request/response shapes sent to and from the app (records). Never return entities directly.
 ├── Models/        EF Core entities, i.e. the database tables
 │   └── Enums/       RideStatus, CarCategory, UserRole...
@@ -73,6 +74,11 @@ joyridr/
 └── Program.cs     Wiring (DI, auth, JSON, OpenAPI, controllers)
 joyridr.Tests/     xUnit tests for scheduling, geo and pricing
 ```
+
+Inside Controllers, Services, Interfaces, DTOs and Models, files are grouped into one folder per feature
+(Auth, User, Rider, Driver, Car, Schedule, Ride, Payment, Chat, Notification, Storage, Admin, Health).
+These folders are only for organizing: the namespace stays the main folder's (`Joyridr.Services`, `Joyridr.DTOs`...),
+so moving a file between features never changes a `using`. `joyridr.csproj.DotSettings` tells Rider the same.
 
 A request flows **Controller → Service → AppDbContext**, and comes back **Entity → DTO → JSON**.
 The `///` comments on controller actions show up as endpoint descriptions in Swagger.

@@ -1,6 +1,7 @@
 using Joyridr.Common;
 using Joyridr.Data;
 using Joyridr.DTOs;
+using Joyridr.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Joyridr.Services;
