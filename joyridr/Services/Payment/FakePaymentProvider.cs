@@ -1,3 +1,5 @@
+using Joyridr.Interfaces;
+
 namespace Joyridr.Services;
 
 /// <summary>Development stand-in: every payment succeeds instantly. Replace with a Stripe implementation before launch.</summary>

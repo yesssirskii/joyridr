@@ -1,4 +1,5 @@
 using Joyridr.Common;
+using Joyridr.Interfaces;
 
 namespace Joyridr.Services;
 

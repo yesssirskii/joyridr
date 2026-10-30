@@ -1,4 +1,4 @@
-namespace Joyridr.Services;
+namespace Joyridr.Interfaces;
 
 /// <summary>
 /// Result of starting a payment. With a real provider (Stripe) the payment usually isn't authorized
