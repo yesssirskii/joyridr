@@ -40,6 +40,9 @@ public class Ride
     /// <summary>Driver must confirm or decline before this, otherwise the ride expires and the rider is refunded.</summary>
     public DateTimeOffset? RespondBy { get; set; }
 
+    /// <summary>When to remind the driver that this request is still waiting. Cleared once the reminder is sent.</summary>
+    public DateTimeOffset? RemindDriverAt { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? ConfirmedAt { get; set; }

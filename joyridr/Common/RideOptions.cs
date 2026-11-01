@@ -18,6 +18,12 @@ public class RideOptions
     /// <summary>The driver has this long to confirm (but never later than 1h before the start).</summary>
     public int DriverResponseHours { get; set; } = 24;
 
+    /// <summary>
+    /// Remind the driver this long before the request expires. For short windows the reminder
+    /// comes halfway through instead, and windows under 30 minutes get none.
+    /// </summary>
+    public int DriverReminderMinutes { get; set; } = 60;
+
     /// <summary>How long a slot is held while the rider completes payment.</summary>
     public int PaymentWindowMinutes { get; set; } = 15;
 
