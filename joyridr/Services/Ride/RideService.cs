@@ -340,7 +340,8 @@ public class RideService(
 
     /// <summary>
     /// Called every minute by <see cref="RideExpiryWorker"/>: releases slots whose payment was never
-    /// finished, and expires requests the driver didn't answer in time.
+    /// finished, expires requests the driver didn't answer in time, and reminds drivers about requests
+    /// that are about to expire.
     /// </summary>
     public async Task<int> ExpireStaleAsync(CancellationToken ct)
     {
@@ -382,8 +383,33 @@ public class RideService(
             }
         }
 
+        await RemindDriversAsync(now, ct);
+
         await notifications.SendPushesAsync(ct);
         return stale.Count;
+    }
+
+    /// <summary>Nudges drivers whose requests are about to expire. Each ride gets one reminder.</summary>
+    private async Task RemindDriversAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var due = await db.Rides
+            .Include(r => r.Car)
+            .Include(r => r.Driver).ThenInclude(u => u.DriverProfile)
+            .Where(r => r.Status == RideStatus.Requested && r.RemindDriverAt <= now && r.RespondBy > now)
+            .OrderBy(r => r.RespondBy)
+            .Take(100)
+            .ToListAsync(ct);
+
+        foreach (var ride in due)
+        {
+            ride.RemindDriverAt = null;
+            notifications.Add(ride.DriverId, NotificationType.RideRequestReminder, "Ride request waiting ⏳",
+                $"You still haven't answered the request for the {CarName(ride.Car)} on {FormatStart(ride)}. " +
+                $"It expires at {FormatLocal(ride, ride.RespondBy!.Value)}.", ride.Id);
+        }
+
+        if (due.Count > 0)
+            await db.SaveChangesAsync(ct);
     }
 
     // ---- helpers ----
@@ -437,6 +463,12 @@ public class RideService(
         var respondBy = now.AddHours(_options.DriverResponseHours);
         var latest = ride.StartsAt.AddHours(-1);
         ride.RespondBy = respondBy < latest ? respondBy : latest;
+
+        // An hour before the deadline, or halfway through if the driver has less than two hours.
+        var window = ride.RespondBy.Value - now;
+        var remindBefore = TimeSpan.FromMinutes(_options.DriverReminderMinutes);
+        if (window / 2 < remindBefore) remindBefore = window / 2;
+        ride.RemindDriverAt = window >= TimeSpan.FromMinutes(30) ? ride.RespondBy - remindBefore : null;
 
         notifications.Add(driver.Id, NotificationType.RideRequested, "New ride request 🔑",
             $"Someone wants a ride on {FormatStart(ride)} for {ride.DurationMinutes} min. Respond by {FormatLocal(ride, ride.RespondBy.Value)}.", ride.Id);

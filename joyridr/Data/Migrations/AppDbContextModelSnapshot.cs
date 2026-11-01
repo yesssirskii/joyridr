@@ -814,6 +814,10 @@ namespace Joyridr.Data.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("price");
 
+                    b.Property<DateTimeOffset?>("RemindDriverAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("remind_driver_at");
+
                     b.Property<DateTimeOffset?>("RespondBy")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("respond_by");
@@ -862,6 +866,9 @@ namespace Joyridr.Data.Migrations
 
                     b.HasIndex("RiderId", "StartsAt")
                         .HasDatabaseName("ix_rides_rider_id_starts_at");
+
+                    b.HasIndex("Status", "RemindDriverAt")
+                        .HasDatabaseName("ix_rides_status_remind_driver_at");
 
                     b.HasIndex("Status", "RespondBy")
                         .HasDatabaseName("ix_rides_status_respond_by");

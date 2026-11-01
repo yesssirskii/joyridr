@@ -30,6 +30,7 @@ public class RideConfiguration : IEntityTypeConfiguration<Ride>
         b.HasIndex(r => new { r.RiderId, r.StartsAt });
         b.HasIndex(r => new { r.DriverId, r.StartsAt });
         b.HasIndex(r => new { r.Status, r.RespondBy });
+        b.HasIndex(r => new { r.Status, r.RemindDriverAt });
     }
 }
 

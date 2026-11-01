@@ -70,6 +70,8 @@ public enum PaymentStatus
 public enum NotificationType
 {
     RideRequested,
+    /// <summary>Sent to the driver shortly before an unanswered request expires.</summary>
+    RideRequestReminder,
     RideConfirmed,
     RideDeclined,
     RideCancelled,
