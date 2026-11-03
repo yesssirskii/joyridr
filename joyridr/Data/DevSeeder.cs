@@ -6,25 +6,29 @@ using Microsoft.EntityFrameworkCore;
 namespace Joyridr.Data;
 
 /// <summary>
-/// Fills an empty development database with demo accounts and cars so the iOS app has
-/// something to show. All accounts use the password <see cref="Password"/>.
+/// Fills an empty database with demo accounts and cars so the iOS app has something to show.
+/// All accounts use the password in Database:DemoPassword: a fixed one in appsettings.Development.json
+/// for Local, a secret Railway variable for Dev (the repo is public, so Dev's must not be in it).
 /// </summary>
 public static class DevSeeder
 {
-    public const string Password = "Password123!";
-
-    public static async Task SeedAsync(AppDbContext db, IPasswordHasher<User> hasher, ILogger logger)
+    public static async Task SeedAsync(AppDbContext db, IPasswordHasher<User> hasher, string? password, ILogger logger)
     {
         if (await db.Users.AnyAsync())
             return;
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            logger.LogWarning("Skipping demo data: Database:DemoPassword isn't set.");
+            return;
+        }
 
-        var admin = NewUser("admin@joyridr.dev", "Admin", "Joyridr", UserRole.Admin, hasher);
+        var admin = NewUser("admin@joyridr.dev", "Admin", "Joyridr", UserRole.Admin, hasher, password);
 
-        var rider = NewUser("rider@joyridr.dev", "Luka", "Horvat", UserRole.JoyRider, hasher);
+        var rider = NewUser("rider@joyridr.dev", "Luka", "Horvat", UserRole.JoyRider, hasher, password);
         rider.PhoneNumber = "+385911111111";
         rider.RiderProfile = new JoyRiderProfile { DateOfBirth = new DateOnly(1998, 5, 14) };
 
-        var ivan = NewUser("driver@joyridr.dev", "Ivan", "Kovač", UserRole.JoyDriver, hasher);
+        var ivan = NewUser("driver@joyridr.dev", "Ivan", "Kovač", UserRole.JoyDriver, hasher, password);
         ivan.PhoneNumber = "+385922222222";
         ivan.DriverProfile = new JoyDriverProfile
         {
@@ -44,7 +48,7 @@ public static class DevSeeder
             ],
         };
 
-        var marko = NewUser("driver2@joyridr.dev", "Marko", "Babić", UserRole.JoyDriver, hasher);
+        var marko = NewUser("driver2@joyridr.dev", "Marko", "Babić", UserRole.JoyDriver, hasher, password);
         marko.DriverProfile = new JoyDriverProfile
         {
             Bio = "Weekend JDM legend tours around Zagreb and Samobor.",
@@ -85,13 +89,14 @@ public static class DevSeeder
         });
 
         await db.SaveChangesAsync();
-        logger.LogInformation("Seeded development data. Log in as rider@joyridr.dev, driver@joyridr.dev or admin@joyridr.dev with password {Password}", Password);
+        logger.LogInformation("Seeded demo data. Log in as rider@joyridr.dev, driver@joyridr.dev or admin@joyridr.dev with the Database:DemoPassword password.");
     }
 
-    private static User NewUser(string email, string firstName, string lastName, UserRole role, IPasswordHasher<User> hasher)
+    private static User NewUser(string email, string firstName, string lastName, UserRole role,
+        IPasswordHasher<User> hasher, string password)
     {
         var user = new User { Email = email, FirstName = firstName, LastName = lastName, Role = role };
-        user.PasswordHash = hasher.HashPassword(user, Password);
+        user.PasswordHash = hasher.HashPassword(user, password);
         return user;
     }
 

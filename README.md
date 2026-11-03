@@ -34,7 +34,7 @@ Swagger opens in your browser automatically when you start the API from Rider or
 
 To call protected endpoints from Swagger: run `POST /api/auth/login`, copy `accessToken`, click **Authorize** and paste it (without the word "Bearer"). Swagger remembers it across reloads.
 
-Demo accounts (password `Password123!`):
+Demo accounts (password `Password123!` locally; on the Dev server it's the secret `Database__DemoPassword` variable in Railway):
 
 | Email | Role | Notes |
 |---|---|---|

@@ -132,7 +132,8 @@ if (config.GetValue<bool>("Database:MigrateOnStartup") || config.GetValue<bool>(
     if (config.GetValue<bool>("Database:MigrateOnStartup"))
         await db.Database.MigrateAsync();
     if (config.GetValue<bool>("Database:SeedDemoData"))
-        await DevSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(), app.Logger);
+        await DevSeeder.SeedAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(),
+            config["Database:DemoPassword"], app.Logger);
 }
 
 app.UseExceptionHandler();
