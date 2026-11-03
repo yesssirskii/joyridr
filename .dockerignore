@@ -1,0 +1,13 @@
+# Keep the build context small and leave local-only files out of the image.
+**/bin/
+**/obj/
+**/.idea/
+**/.vs/
+**/*.user
+.git/
+.github/
+joyridr.Tests/
+
+# Local uploads and the Local environment's settings (with its dev-only signing key) stay on your Mac.
+joyridr/wwwroot/uploads/
+joyridr/appsettings.Development.json

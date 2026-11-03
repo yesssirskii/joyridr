@@ -1,0 +1,30 @@
+# Runs on every push and pull request to dev and main. Railway waits for these checks
+# ("Wait for CI") before it deploys dev, so a failing build or test never reaches the Dev server.
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore joyridr.sln
+      - run: dotnet build joyridr.sln --no-restore -c Release
+      - run: dotnet test joyridr.sln --no-build -c Release
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # Same image Railway builds; catches a broken Dockerfile before it reaches Railway.
+      - run: docker build -t joyridr-api .
