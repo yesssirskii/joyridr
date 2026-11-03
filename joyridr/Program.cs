@@ -19,6 +19,12 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
+// The Dev profile on your Mac reads the Dev database and signing key from its own user secrets
+// (`dotnet user-secrets set ... --id joyridr-api-dev`), kept apart from Local's so Local never touches Dev data.
+// On Railway the file doesn't exist and the same settings come from its variables.
+if (builder.Environment.IsEnvironment("Dev"))
+    config.AddUserSecrets("joyridr-api-dev");
+
 // ---- Database ----
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseNpgsql(config.GetConnectionString("Default"))
@@ -118,7 +124,8 @@ if (config.GetValue("BackgroundJobs:Enabled", true))
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+// Each environment switches these on in its appsettings.{Environment}.json (Local and Dev both do).
+if (config.GetValue<bool>("Database:MigrateOnStartup") || config.GetValue<bool>("Database:SeedDemoData"))
 {
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
