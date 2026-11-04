@@ -1,3 +1,4 @@
+using Joyridr.Common;
 using Joyridr.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -10,6 +11,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         b.Property(u => u.Email).HasMaxLength(256);
         b.HasIndex(u => u.Email).IsUnique();
+        b.Property(u => u.Username).HasMaxLength(UserNames.UsernameMaxLength);
+        b.HasIndex(u => u.Username).IsUnique();
         b.Property(u => u.PasswordHash).HasMaxLength(512);
         b.Property(u => u.FirstName).HasMaxLength(100);
         b.Property(u => u.LastName).HasMaxLength(100);

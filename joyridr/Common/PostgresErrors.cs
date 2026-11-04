@@ -11,4 +11,8 @@ public static class PostgresErrors
 
     public static bool IsUniqueViolation(this DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
+    /// <summary>True when the save failed because of this unique index, e.g. "ix_users_username".</summary>
+    public static bool IsUniqueViolation(this DbUpdateException ex, string index) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg && pg.ConstraintName == index;
 }

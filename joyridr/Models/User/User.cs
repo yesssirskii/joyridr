@@ -8,6 +8,8 @@ public class User
 
     /// <summary>Always stored lower-case.</summary>
     public string Email { get; set; } = null!;
+    /// <summary>"ivan.kovac", shown as @ivan.kovac. Always stored lower-case; see <see cref="Common.UserNames"/>.</summary>
+    public string Username { get; set; } = null!;
     public string PasswordHash { get; set; } = null!;
     public string FirstName { get; set; } = null!;
     public string LastName { get; set; } = null!;
