@@ -5,6 +5,7 @@ namespace Joyridr.DTOs;
 
 public record RegisterRequest(
     [Required, EmailAddress, MaxLength(256)] string Email,
+    [Required, MaxLength(32)] string Username,
     [Required, MinLength(8), MaxLength(128)] string Password,
     [Required, MaxLength(100)] string FirstName,
     [Required, MaxLength(100)] string LastName,

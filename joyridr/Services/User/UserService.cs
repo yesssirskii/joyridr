@@ -25,10 +25,22 @@ public class UserService(AppDbContext db, IFileStorage storage)
     public async Task<MeResponse> UpdateMeAsync(Guid userId, UpdateMeRequest request, CancellationToken ct)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw ApiException.NotFound("User");
+        var username = UserNames.NormalizeUsername(request.Username);
+        if (username != user.Username && await db.Users.AnyAsync(u => u.Username == username, ct))
+            throw AuthService.UsernameTaken();
+
+        user.Username = username;
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.PhoneNumber = request.PhoneNumber?.Trim();
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.IsUniqueViolation(AuthService.UsernameIndex))
+        {
+            throw AuthService.UsernameTaken();
+        }
         return await GetMeAsync(userId, ct);
     }
 

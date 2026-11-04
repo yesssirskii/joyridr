@@ -7,6 +7,7 @@ namespace Joyridr.DTOs;
 public record UserDto(
     Guid Id,
     string Email,
+    string Username,
     string FirstName,
     string LastName,
     string? PhoneNumber,
@@ -14,7 +15,7 @@ public record UserDto(
     UserRole Role,
     DateTimeOffset CreatedAt)
 {
-    public static UserDto From(User u) => new(u.Id, u.Email, u.FirstName, u.LastName, u.PhoneNumber, u.AvatarUrl, u.Role, u.CreatedAt);
+    public static UserDto From(User u) => new(u.Id, u.Email, u.Username, u.FirstName, u.LastName, u.PhoneNumber, u.AvatarUrl, u.Role, u.CreatedAt);
 }
 
 public record RiderProfileDto(DateOnly? DateOfBirth, double RatingAverage, int RatingCount, int CompletedRides)
@@ -26,6 +27,7 @@ public record RiderProfileDto(DateOnly? DateOfBirth, double RatingAverage, int R
 public record MeResponse(UserDto User, RiderProfileDto? RiderProfile, DriverProfileDto? DriverProfile);
 
 public record UpdateMeRequest(
+    [Required, MaxLength(32)] string Username,
     [Required, MaxLength(100)] string FirstName,
     [Required, MaxLength(100)] string LastName,
     [MaxLength(32)] string? PhoneNumber);

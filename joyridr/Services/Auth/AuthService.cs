@@ -24,10 +24,14 @@ public class AuthService(
         var email = NormalizeEmail(request.Email);
         if (await db.Users.AnyAsync(u => u.Email == email, ct))
             throw ApiException.Conflict("An account with this email already exists.", "email_taken");
+        var username = UserNames.NormalizeUsername(request.Username);
+        if (await db.Users.AnyAsync(u => u.Username == username, ct))
+            throw UsernameTaken();
 
         var user = new User
         {
             Email = email,
+            Username = username,
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
             PhoneNumber = request.PhoneNumber?.Trim(),
@@ -46,6 +50,11 @@ public class AuthService(
         try
         {
             await db.SaveChangesAsync(ct);
+        }
+        // Someone took the email or username between the checks above and this save.
+        catch (DbUpdateException ex) when (ex.IsUniqueViolation(UsernameIndex))
+        {
+            throw UsernameTaken();
         }
         catch (DbUpdateException ex) when (ex.IsUniqueViolation())
         {
@@ -133,4 +142,9 @@ public class AuthService(
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    internal const string UsernameIndex = "ix_users_username";
+
+    internal static ApiException UsernameTaken() =>
+        ApiException.Conflict("That username is taken. Try another one.", "username_taken");
 }

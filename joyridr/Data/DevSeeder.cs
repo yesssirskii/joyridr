@@ -22,13 +22,13 @@ public static class DevSeeder
             return;
         }
 
-        var admin = NewUser("admin@joyridr.dev", "Admin", "Joyridr", UserRole.Admin, hasher, password);
+        var admin = NewUser("admin@joyridr.dev", "admin.joyridr", "Admin", "Joyridr", UserRole.Admin, hasher, password);
 
-        var rider = NewUser("rider@joyridr.dev", "Luka", "Horvat", UserRole.JoyRider, hasher, password);
+        var rider = NewUser("rider@joyridr.dev", "luka.horvat", "Luka", "Horvat", UserRole.JoyRider, hasher, password);
         rider.PhoneNumber = "+385911111111";
         rider.RiderProfile = new JoyRiderProfile { DateOfBirth = new DateOnly(1998, 5, 14) };
 
-        var ivan = NewUser("driver@joyridr.dev", "Ivan", "Kovač", UserRole.JoyDriver, hasher, password);
+        var ivan = NewUser("driver@joyridr.dev", "ivan.kovac", "Ivan", "Kovač", UserRole.JoyDriver, hasher, password);
         ivan.PhoneNumber = "+385922222222";
         ivan.DriverProfile = new JoyDriverProfile
         {
@@ -48,7 +48,7 @@ public static class DevSeeder
             ],
         };
 
-        var marko = NewUser("driver2@joyridr.dev", "Marko", "Babić", UserRole.JoyDriver, hasher, password);
+        var marko = NewUser("driver2@joyridr.dev", "marko.babic", "Marko", "Babić", UserRole.JoyDriver, hasher, password);
         marko.DriverProfile = new JoyDriverProfile
         {
             Bio = "Weekend JDM legend tours around Zagreb and Samobor.",
@@ -92,10 +92,10 @@ public static class DevSeeder
         logger.LogInformation("Seeded demo data. Log in as rider@joyridr.dev, driver@joyridr.dev or admin@joyridr.dev with the Database:DemoPassword password.");
     }
 
-    private static User NewUser(string email, string firstName, string lastName, UserRole role,
+    private static User NewUser(string email, string username, string firstName, string lastName, UserRole role,
         IPasswordHasher<User> hasher, string password)
     {
-        var user = new User { Email = email, FirstName = firstName, LastName = lastName, Role = role };
+        var user = new User { Email = email, Username = username, FirstName = firstName, LastName = lastName, Role = role };
         user.PasswordHash = hasher.HashPassword(user, password);
         return user;
     }
