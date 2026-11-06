@@ -8,7 +8,7 @@ public static partial class UserNames
     public const int UsernameMaxLength = 20;
 
     /// <summary>"Ivan K." - riders and drivers only see each other's first name and last initial.</summary>
-    public static string Display(User u) => $"{u.FirstName} {u.LastName[..1]}.";
+    public static string Display(User u) => u.DeletedAt is null ? $"{u.FirstName} {u.LastName[..1]}." : "Deleted user";
 
     /// <summary>
     /// Usernames are 3-20 lower-case letters, digits, dots and underscores, so "@Ivan.Kovac" and "ivan.kovac"

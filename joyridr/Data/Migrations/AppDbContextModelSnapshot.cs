@@ -675,6 +675,95 @@ namespace Joyridr.Data.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Joyridr.Models.Report", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentSnapshot")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("content_snapshot");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("details");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReportedUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reported_user_id");
+
+                    b.Property<Guid>("ReporterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reporter_id");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("resolution");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_id");
+
+                    b.Property<Guid?>("ReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("review_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reports");
+
+                    b.HasIndex("MessageId")
+                        .HasDatabaseName("ix_reports_message_id");
+
+                    b.HasIndex("ReportedUserId")
+                        .HasDatabaseName("ix_reports_reported_user_id");
+
+                    b.HasIndex("ReporterId")
+                        .HasDatabaseName("ix_reports_reporter_id");
+
+                    b.HasIndex("ReviewId")
+                        .HasDatabaseName("ix_reports_review_id");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_reports_status_created_at");
+
+                    b.ToTable("reports", (string)null);
+                });
+
             modelBuilder.Entity("Joyridr.Models.Review", b =>
                 {
                     b.Property<Guid>("Id")
@@ -893,9 +982,22 @@ namespace Joyridr.Data.Migrations
                         .HasColumnType("character varying(512)")
                         .HasColumnName("avatar_url");
 
+                    b.Property<string>("BanReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ban_reason");
+
+                    b.Property<DateTimeOffset?>("BannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("banned_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -954,6 +1056,32 @@ namespace Joyridr.Data.Migrations
                         .HasDatabaseName("ix_users_username");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Joyridr.Models.UserBlock", b =>
+                {
+                    b.Property<Guid>("BlockerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocker_id");
+
+                    b.Property<Guid>("BlockedId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("blocked_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.HasKey("BlockerId", "BlockedId")
+                        .HasName("pk_user_blocks");
+
+                    b.HasIndex("BlockedId")
+                        .HasDatabaseName("ix_user_blocks_blocked_id");
+
+                    b.ToTable("user_blocks", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_user_blocks_not_self", "blocker_id <> blocked_id");
+                        });
                 });
 
             modelBuilder.Entity("Joyridr.Models.Car", b =>
@@ -1118,6 +1246,43 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Joyridr.Models.Report", b =>
+                {
+                    b.HasOne("Joyridr.Models.ChatMessage", "Message")
+                        .WithMany()
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reports_chat_messages_message_id");
+
+                    b.HasOne("Joyridr.Models.User", "ReportedUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_users_reported_user_id");
+
+                    b.HasOne("Joyridr.Models.User", "Reporter")
+                        .WithMany()
+                        .HasForeignKey("ReporterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reports_users_reporter_id");
+
+                    b.HasOne("Joyridr.Models.Review", "Review")
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reports_reviews_review_id");
+
+                    b.Navigation("Message");
+
+                    b.Navigation("ReportedUser");
+
+                    b.Navigation("Reporter");
+
+                    b.Navigation("Review");
+                });
+
             modelBuilder.Entity("Joyridr.Models.Review", b =>
                 {
                     b.HasOne("Joyridr.Models.User", "Author")
@@ -1176,6 +1341,27 @@ namespace Joyridr.Data.Migrations
                     b.Navigation("Driver");
 
                     b.Navigation("Rider");
+                });
+
+            modelBuilder.Entity("Joyridr.Models.UserBlock", b =>
+                {
+                    b.HasOne("Joyridr.Models.User", "Blocked")
+                        .WithMany()
+                        .HasForeignKey("BlockedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_blocks_users_blocked_id");
+
+                    b.HasOne("Joyridr.Models.User", "Blocker")
+                        .WithMany()
+                        .HasForeignKey("BlockerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_blocks_users_blocker_id");
+
+                    b.Navigation("Blocked");
+
+                    b.Navigation("Blocker");
                 });
 
             modelBuilder.Entity("Joyridr.Models.Car", b =>

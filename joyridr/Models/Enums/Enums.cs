@@ -67,6 +67,33 @@ public enum PaymentStatus
     Failed
 }
 
+public enum ReportReason
+{
+    Spam,
+    Harassment,
+    Inappropriate,
+    /// <summary>Scams, fake listings, asking to pay outside the app.</summary>
+    Scam,
+    Other
+}
+
+/// <summary>What was reported. Kept even after the message or review is removed.</summary>
+public enum ReportKind
+{
+    User,
+    Message,
+    Review
+}
+
+public enum ReportStatus
+{
+    Open,
+    /// <summary>An admin looked at it and decided nothing needed doing.</summary>
+    Dismissed,
+    /// <summary>The content was removed or the user banned (or the account was deleted).</summary>
+    Resolved
+}
+
 public enum NotificationType
 {
     RideRequested,

@@ -39,7 +39,7 @@ public class DriverService(AppDbContext db)
             .Include(d => d.Cars.Where(c => c.Status == CarStatus.Approved && c.IsActive && c.DeletedAt == null))
                 .ThenInclude(c => c.Photos)
             .AsSplitQuery()
-            .FirstOrDefaultAsync(d => d.UserId == driverId, ct)
+            .FirstOrDefaultAsync(d => d.UserId == driverId && d.User.DeletedAt == null, ct)
             ?? throw ApiException.NotFound("Driver");
 
         var reviews = await db.Reviews

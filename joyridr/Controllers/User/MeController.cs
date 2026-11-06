@@ -8,7 +8,7 @@ namespace Joyridr.Controllers;
 
 [Route("api/me")]
 [Authorize]
-public class MeController(UserService users) : ApiControllerBase
+public class MeController(UserService users, AccountService accounts) : ApiControllerBase
 {
     /// <summary>The logged-in user with their rider or driver profile.</summary>
     [HttpGet]
@@ -28,4 +28,16 @@ public class MeController(UserService users) : ApiControllerBase
     [HttpPost("avatar")]
     [Consumes("multipart/form-data")]
     public Task<UserDto> UploadAvatar(IFormFile file, CancellationToken ct) => users.UploadAvatarAsync(CurrentUserId, file, ct);
+
+    /// <summary>
+    /// Delete the account for good, confirmed with the current password. Upcoming rides are cancelled under
+    /// the normal rules, personal data, messages and review text are wiped, and every device is logged out.
+    /// Ride and payment records are kept (without personal data) for accounting.
+    /// </summary>
+    [HttpPost("delete")]
+    public async Task<IActionResult> Delete(DeleteAccountRequest request, CancellationToken ct)
+    {
+        await accounts.DeleteAsync(CurrentUserId, request.Password, ct);
+        return NoContent();
+    }
 }

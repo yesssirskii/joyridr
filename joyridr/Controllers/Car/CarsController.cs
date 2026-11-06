@@ -24,7 +24,7 @@ public class CarsController(CarService cars) : ApiControllerBase
         decimal? maxPricePerHour = null,
         int page = 1,
         int pageSize = 20) =>
-        cars.SearchNearbyAsync(new NearbyCarsQuery(latitude, longitude, radiusKm, category, minSeats, maxPricePerHour, page, pageSize), ct);
+        cars.SearchNearbyAsync(new NearbyCarsQuery(latitude, longitude, radiusKm, category, minSeats, maxPricePerHour, page, pageSize), CurrentUserId, ct);
 
     /// <summary>Car details. Unlisted cars are only visible to their owner and admins.</summary>
     [HttpGet("{carId:guid}")]
