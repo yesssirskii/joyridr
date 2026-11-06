@@ -18,6 +18,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(u => u.LastName).HasMaxLength(100);
         b.Property(u => u.PhoneNumber).HasMaxLength(32);
         b.Property(u => u.AvatarUrl).HasMaxLength(512);
+        b.Property(u => u.BanReason).HasMaxLength(500);
 
         b.HasOne(u => u.RiderProfile).WithOne(p => p.User)
             .HasForeignKey<JoyRiderProfile>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);

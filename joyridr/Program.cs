@@ -52,6 +52,18 @@ builder.Services
             RoleClaimType = "role",
             ClockSkew = TimeSpan.FromSeconds(30),
         };
+        // Access tokens last 15 minutes, so check on every request that the account still exists and
+        // isn't banned. Otherwise a deleted or banned user could keep going until their token ran out.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var userId = context.Principal!.GetUserId();
+                if (!await db.Users.AnyAsync(u => u.Id == userId && u.DeletedAt == null && u.BannedAt == null, context.HttpContext.RequestAborted))
+                    context.Fail("This account is no longer active.");
+            },
+        };
     });
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.Rider, p => p.RequireRole(nameof(UserRole.JoyRider)))
@@ -119,6 +131,9 @@ builder.Services.AddScoped<RideService>();
 builder.Services.AddScoped<NotificationService>();
 builder.Services.AddScoped<AdminService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<AccountService>();
+builder.Services.AddScoped<BlockService>();
+builder.Services.AddScoped<ReportService>();
 if (config.GetValue("BackgroundJobs:Enabled", true))
     builder.Services.AddHostedService<RideExpiryWorker>();
 

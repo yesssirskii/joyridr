@@ -75,6 +75,9 @@ public class AuthService(
 
         if (user is null || result == PasswordVerificationResult.Failed)
             throw ApiException.Unauthorized("Wrong email or password.", "invalid_credentials");
+        // Only after the password check, so the ban isn't revealed to someone guessing.
+        if (user.BannedAt is not null)
+            throw new ApiException(StatusCodes.Status403Forbidden, "This account has been suspended.", "account_banned");
 
         if (result == PasswordVerificationResult.SuccessRehashNeeded)
             user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
@@ -103,6 +106,8 @@ public class AuthService(
 
         if (existing.ExpiresAt <= now)
             throw ApiException.Unauthorized("Refresh token expired, please log in again.", "refresh_token_expired");
+        if (!existing.User.IsActive)
+            throw ApiException.Unauthorized("This account is no longer active.", "account_inactive");
 
         var response = IssueTokens(existing.User, existing.FamilyId, out var newToken);
         existing.RevokedAt = now;

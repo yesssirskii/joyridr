@@ -32,7 +32,7 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
         switch (role)
         {
             case UserRole.JoyRider:
-                if (!await db.DriverProfiles.AnyAsync(d => d.UserId == otherUserId, ct))
+                if (!await db.DriverProfiles.AnyAsync(d => d.UserId == otherUserId && d.User.DeletedAt == null, ct))
                     throw ApiException.NotFound("Driver");
                 (riderId, driverId) = (userId, otherUserId);
                 break;
@@ -53,6 +53,9 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
 
         if (conversationId is null)
         {
+            // An existing chat still opens (read-only), but a block stops a new one being started.
+            if (await BlockService.AnyBetweenAsync(db, riderId, driverId, ct))
+                throw BlockService.Blocked("You can't message this person.");
             var conversation = new Conversation { RiderId = riderId, DriverId = driverId };
             db.Conversations.Add(conversation);
             try
@@ -124,6 +127,9 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
         var text = body.Trim();
         if (text.Length == 0)
             throw ApiException.BadRequest("Message can't be empty.", "empty_message");
+        var otherUser = conversation.RiderId == userId ? conversation.Driver : conversation.Rider;
+        if (!otherUser.IsActive || await BlockService.AnyBetweenAsync(db, conversation.RiderId, conversation.DriverId, ct))
+            throw BlockService.Blocked("You can't message this person.");
 
         var now = clock.GetUtcNow();
         var message = new ChatMessage { ConversationId = conversation.Id, SenderId = userId, Body = text, CreatedAt = now };
@@ -176,7 +182,7 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
     /// Adds the other user, last message and unread count. Filter and sort <paramref name="conversations"/>
     /// before calling this: EF can't translate sorting on the projected record.
     /// </summary>
-    private static IQueryable<ConversationRow> ToRows(IQueryable<Conversation> conversations, Guid userId) =>
+    private IQueryable<ConversationRow> ToRows(IQueryable<Conversation> conversations, Guid userId) =>
         conversations
             .Select(c => new ConversationRow(
                 c,
@@ -185,7 +191,10 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
                 c.Messages.OrderByDescending(m => m.CreatedAt).FirstOrDefault(),
                 c.Messages.Count(m => m.SenderId != userId
                     && ((c.RiderId == userId ? c.RiderLastReadAt : c.DriverLastReadAt) == null
-                        || m.CreatedAt > (c.RiderId == userId ? c.RiderLastReadAt : c.DriverLastReadAt)))));
+                        || m.CreatedAt > (c.RiderId == userId ? c.RiderLastReadAt : c.DriverLastReadAt))),
+                // One of the two is the viewer and nobody can block themselves, so these are "I blocked them" and "they blocked me".
+                db.UserBlocks.Any(b => b.BlockerId == userId && (b.BlockedId == c.RiderId || b.BlockedId == c.DriverId)),
+                db.UserBlocks.Any(b => b.BlockedId == userId && (b.BlockerId == c.RiderId || b.BlockerId == c.DriverId))));
 
     private async Task EnsureParticipantAsync(Guid userId, Guid conversationId, CancellationToken ct)
     {
@@ -203,7 +212,8 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
     private static ChatMessageDto ToDto(ChatMessage m, Guid viewerId) =>
         new(m.Id, m.ConversationId, m.SenderId, m.SenderId == viewerId, m.Body, m.CreatedAt);
 
-    private record ConversationRow(Conversation Conversation, User Rider, User Driver, ChatMessage? LastMessage, int UnreadCount)
+    private record ConversationRow(
+        Conversation Conversation, User Rider, User Driver, ChatMessage? LastMessage, int UnreadCount, bool BlockedByMe, bool BlocksMe)
     {
         public ConversationDto ToDto(Guid viewerId)
         {
@@ -214,7 +224,9 @@ public class ChatService(AppDbContext db, NotificationService notifications, Tim
                 new ChatParticipantDto(other.Id, UserNames.Display(other), other.AvatarUrl, IsDriver: viewerIsRider),
                 LastMessage is null ? null : ChatService.ToDto(LastMessage, viewerId),
                 UnreadCount,
-                Conversation.CreatedAt);
+                Conversation.CreatedAt,
+                CanMessage: !BlockedByMe && !BlocksMe && other.IsActive,
+                BlockedByMe);
         }
     }
 }

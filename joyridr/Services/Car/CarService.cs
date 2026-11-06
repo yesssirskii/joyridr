@@ -14,7 +14,7 @@ public class CarService(AppDbContext db, IFileStorage storage, AvailabilityServi
     private const int MaxPhotosPerCar = 12;
 
     /// <summary>Listed cars whose driver is based within the radius, closest first.</summary>
-    public async Task<PagedResult<NearbyCarDto>> SearchNearbyAsync(NearbyCarsQuery q, CancellationToken ct)
+    public async Task<PagedResult<NearbyCarDto>> SearchNearbyAsync(NearbyCarsQuery q, Guid viewerId, CancellationToken ct)
     {
         var radiusKm = Math.Clamp(q.RadiusKm, 1, 200);
         var page = Math.Max(q.Page, 1);
@@ -25,7 +25,10 @@ public class CarService(AppDbContext db, IFileStorage storage, AvailabilityServi
             .Where(c => c.Status == CarStatus.Approved && c.IsActive && c.DeletedAt == null)
             .Where(c => c.Driver.IsAcceptingRides
                         && c.Driver.BaseLatitude >= minLat && c.Driver.BaseLatitude <= maxLat
-                        && c.Driver.BaseLongitude >= minLng && c.Driver.BaseLongitude <= maxLng);
+                        && c.Driver.BaseLongitude >= minLng && c.Driver.BaseLongitude <= maxLng)
+            // Drivers the viewer blocked, or who blocked the viewer.
+            .Where(c => !db.UserBlocks.Any(b => (b.BlockerId == viewerId && b.BlockedId == c.DriverId)
+                                                || (b.BlockerId == c.DriverId && b.BlockedId == viewerId)));
         if (q.Category is not null)
             query = query.Where(c => c.Category == q.Category);
         if (q.MinSeats is not null)

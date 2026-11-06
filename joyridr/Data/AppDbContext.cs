@@ -21,6 +21,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider c
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
+    public DbSet<Report> Reports => Set<Report>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +42,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider c
         configurationBuilder.Properties<MeetingPointType>().HaveConversion<string>().HaveMaxLength(32);
         configurationBuilder.Properties<PaymentStatus>().HaveConversion<string>().HaveMaxLength(32);
         configurationBuilder.Properties<NotificationType>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<ReportReason>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<ReportKind>().HaveConversion<string>().HaveMaxLength(32);
+        configurationBuilder.Properties<ReportStatus>().HaveConversion<string>().HaveMaxLength(32);
         configurationBuilder.Properties<decimal>().HavePrecision(10, 2);
     }
 

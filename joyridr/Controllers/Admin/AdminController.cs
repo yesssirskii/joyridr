@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Joyridr.Controllers;
 
-/// <summary>Car review queue and driver verification.</summary>
+/// <summary>Car review queue, driver verification, and moderation of reported users and content.</summary>
 [Route("api/admin")]
 [Authorize(Policy = Policies.Admin)]
 public class AdminController(AdminService admin) : ApiControllerBase
@@ -31,6 +31,35 @@ public class AdminController(AdminService admin) : ApiControllerBase
     public async Task<IActionResult> VerifyDriver(Guid driverId, CancellationToken ct)
     {
         await admin.VerifyDriverAsync(driverId, ct);
+        return NoContent();
+    }
+
+    /// <summary>Reports with the given status (open by default), oldest first.</summary>
+    [HttpGet("reports")]
+    public Task<List<ReportDto>> ListReports(CancellationToken ct, ReportStatus status = ReportStatus.Open) =>
+        admin.ListReportsAsync(status, ct);
+
+    /// <summary>Close a report without doing anything.</summary>
+    [HttpPost("reports/{reportId:guid}/dismiss")]
+    public async Task<IActionResult> DismissReport(Guid reportId, CancellationToken ct)
+    {
+        await admin.DismissReportAsync(CurrentUserId, reportId, ct);
+        return NoContent();
+    }
+
+    /// <summary>Delete the reported message or review. Closes every open report about it.</summary>
+    [HttpPost("reports/{reportId:guid}/remove-content")]
+    public async Task<IActionResult> RemoveReportedContent(Guid reportId, CancellationToken ct)
+    {
+        await admin.RemoveReportedContentAsync(CurrentUserId, reportId, ct);
+        return NoContent();
+    }
+
+    /// <summary>Ban a user: logged out everywhere, can't log in, upcoming rides cancelled with full refunds, cars hidden.</summary>
+    [HttpPost("users/{userId:guid}/ban")]
+    public async Task<IActionResult> BanUser(Guid userId, BanUserRequest request, CancellationToken ct)
+    {
+        await admin.BanUserAsync(CurrentUserId, userId, request.Reason, ct);
         return NoContent();
     }
 }

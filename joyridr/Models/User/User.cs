@@ -20,6 +20,18 @@ public class User
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Set when the user deleted their account. Their personal data is wiped at the same moment (see
+    /// <see cref="Services.AccountService"/>); the row stays so past rides and payments still add up.
+    /// </summary>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>Set when an admin bans the user: they're logged out everywhere and can't log back in.</summary>
+    public DateTimeOffset? BannedAt { get; set; }
+    public string? BanReason { get; set; }
+
+    public bool IsActive => DeletedAt is null && BannedAt is null;
+
     public JoyRiderProfile? RiderProfile { get; set; }
     public JoyDriverProfile? DriverProfile { get; set; }
     public List<RefreshToken> RefreshTokens { get; set; } = [];

@@ -41,6 +41,8 @@ public class RideService(
             throw ApiException.Conflict("This driver isn't accepting rides right now.", "driver_unavailable");
         if (car.DriverId == riderId)
             throw ApiException.BadRequest("You can't book your own car.", "own_car");
+        if (await BlockService.AnyBetweenAsync(db, riderId, car.DriverId, ct))
+            throw BlockService.Blocked("You can't book this driver.");
 
         var startsAt = request.StartsAt.ToUniversalTime();
         await availability.EnsureBookableAsync(car.Driver, startsAt, request.DurationMinutes, ct);
@@ -159,48 +161,114 @@ public class RideService(
     {
         var ride = await LoadForUpdateAsync(rideId, ct);
         var now = clock.GetUtcNow();
-        var payment = ride.Payment!;
 
         if (ride.RiderId == userId)
         {
             EnsureStatus(ride, RideStatus.AwaitingPayment, RideStatus.Requested, RideStatus.Confirmed);
-            if (ride.Status == RideStatus.Confirmed)
-            {
-                var hoursBeforeStart = (ride.StartsAt - now).TotalHours;
-                if (hoursBeforeStart >= _options.FreeCancellationHours)
-                    await RefundAsync(payment, payment.Amount, now, ct);
-                // Late cancellation: no refund. The driver blocked this time for the rider.
-            }
-            else
-            {
-                await ReleasePaymentAsync(ride, now, ct);
-            }
-
-            if (ride.Status != RideStatus.AwaitingPayment)
-                notifications.Add(ride.DriverId, NotificationType.RideCancelled, "Ride cancelled",
-                    $"{UserNames.Display(ride.Rider)} cancelled the ride on {FormatStart(ride)}.", ride.Id);
+            await CancelByRiderAsync(ride, now, fullRefund: false, ct);
         }
         else if (ride.DriverId == userId)
         {
             if (ride.Status == RideStatus.Requested)
                 throw ApiException.BadRequest("Use decline for ride requests.", "use_decline");
             EnsureStatus(ride, RideStatus.Confirmed);
-
-            // Driver cancelling always means a full refund for the rider.
-            await RefundAsync(payment, payment.Amount, now, ct);
-            notifications.Add(ride.RiderId, NotificationType.RideCancelled, "Ride cancelled",
-                $"{UserNames.Display(ride.Driver)} had to cancel your ride on {FormatStart(ride)}. You'll get a full refund.", ride.Id);
+            await CancelByDriverAsync(ride, now, ct);
         }
         else
         {
             throw ApiException.NotFound("Ride");
         }
 
+        MarkCancelled(ride, userId, reason?.Trim(), now);
+        return await SaveAndReturnAsync(ride, userId, ct);
+    }
+
+    /// <summary>
+    /// Ends every ride of the user that hasn't started yet, when their account is deleted or banned.
+    /// The user's side is treated as the one cancelling: as a rider the normal refund rules apply
+    /// (unless <paramref name="fullRefund"/>), and as a driver the rider always gets their money back.
+    /// Rides in progress are left alone; callers decide what to do about those.
+    /// </summary>
+    public async Task CloseOpenRidesAsync(Guid userId, bool fullRefund, string reason, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var open = await RidesWithDetails()
+            .Where(r => (r.RiderId == userId || r.DriverId == userId)
+                        && (r.Status == RideStatus.AwaitingPayment || r.Status == RideStatus.Requested || r.Status == RideStatus.Confirmed))
+            .ToListAsync(ct);
+
+        foreach (var ride in open)
+        {
+            if (ride.RiderId == userId)
+            {
+                await CancelByRiderAsync(ride, now, fullRefund, ct);
+                MarkCancelled(ride, userId, reason, now);
+            }
+            else if (ride.Status == RideStatus.Requested)
+            {
+                await ReleasePaymentAsync(ride, now, ct);
+                ride.Status = RideStatus.Declined;
+                ride.DeclinedAt = now;
+                ride.DeclineReason = reason;
+                notifications.Add(ride.RiderId, NotificationType.RideDeclined, "Ride declined",
+                    $"Your ride in the {CarName(ride.Car)} on {FormatStart(ride)} can't go ahead. You haven't been charged.", ride.Id);
+            }
+            else
+            {
+                if (ride.Status == RideStatus.AwaitingPayment)
+                    await ReleasePaymentAsync(ride, now, ct);
+                else
+                    await CancelByDriverAsync(ride, now, ct);
+                MarkCancelled(ride, userId, reason, now);
+            }
+        }
+
+        if (open.Count == 0)
+            return;
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw ApiException.Conflict("One of your rides was just changed. Try again.", "ride_changed");
+        }
+        await notifications.SendPushesAsync(ct);
+    }
+
+    private async Task CancelByRiderAsync(Ride ride, DateTimeOffset now, bool fullRefund, CancellationToken ct)
+    {
+        if (ride.Status == RideStatus.Confirmed)
+        {
+            var hoursBeforeStart = (ride.StartsAt - now).TotalHours;
+            if (fullRefund || hoursBeforeStart >= _options.FreeCancellationHours)
+                await RefundAsync(ride.Payment!, ride.Payment!.Amount, now, ct);
+            // Late cancellation: no refund. The driver blocked this time for the rider.
+        }
+        else
+        {
+            await ReleasePaymentAsync(ride, now, ct);
+        }
+
+        if (ride.Status != RideStatus.AwaitingPayment)
+            notifications.Add(ride.DriverId, NotificationType.RideCancelled, "Ride cancelled",
+                $"{UserNames.Display(ride.Rider)} cancelled the ride on {FormatStart(ride)}.", ride.Id);
+    }
+
+    /// <summary>Driver cancelling a confirmed ride always means a full refund for the rider.</summary>
+    private async Task CancelByDriverAsync(Ride ride, DateTimeOffset now, CancellationToken ct)
+    {
+        await RefundAsync(ride.Payment!, ride.Payment!.Amount, now, ct);
+        notifications.Add(ride.RiderId, NotificationType.RideCancelled, "Ride cancelled",
+            $"{UserNames.Display(ride.Driver)} had to cancel your ride on {FormatStart(ride)}. You'll get a full refund.", ride.Id);
+    }
+
+    private static void MarkCancelled(Ride ride, Guid cancelledById, string? reason, DateTimeOffset now)
+    {
         ride.Status = RideStatus.Cancelled;
         ride.CancelledAt = now;
-        ride.CancelledById = userId;
-        ride.CancellationReason = reason?.Trim();
-        return await SaveAndReturnAsync(ride, userId, ct);
+        ride.CancelledById = cancelledById;
+        ride.CancellationReason = reason;
     }
 
     public async Task<RideDto> UpdateMeetingPointAsync(Guid userId, Guid rideId, UpdateMeetingPointRequest request, CancellationToken ct)
