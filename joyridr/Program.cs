@@ -33,6 +33,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 // ---- Options ----
 builder.Services.Configure<JwtOptions>(config.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<RideOptions>(config.GetSection(RideOptions.SectionName));
+builder.Services.Configure<EmailOptions>(config.GetSection(EmailOptions.SectionName));
 var jwt = config.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.SigningKey) || jwt.SigningKey.Length < 32)
     throw new InvalidOperationException("Jwt:SigningKey must be set and at least 32 characters long.");
@@ -121,6 +122,14 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
 builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
+// Real emails once a Resend key is set; otherwise they're written to the log.
+if (string.IsNullOrWhiteSpace(config[$"{EmailOptions.SectionName}:ResendApiKey"]))
+    builder.Services.AddSingleton<IEmailSender, LoggingEmailSender>();
+else
+    builder.Services.AddHttpClient<IEmailSender, ResendEmailSender>(http => http.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddSingleton<EmailQueue>();
+// Not behind BackgroundJobs:Enabled: emails must go out even where the ride jobs are switched off.
+builder.Services.AddHostedService<EmailDispatcher>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<DriverService>();

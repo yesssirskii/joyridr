@@ -1,6 +1,9 @@
+using System.Security.Cryptography;
+using System.Text;
 using Joyridr.Common;
 using Joyridr.Data;
 using Joyridr.DTOs;
+using Joyridr.Interfaces;
 using Joyridr.Models;
 using Joyridr.Models.Enums;
 using Microsoft.AspNetCore.Identity;
@@ -14,8 +17,14 @@ public class AuthService(
     TokenService tokens,
     IPasswordHasher<User> passwordHasher,
     IOptions<JwtOptions> jwtOptions,
-    TimeProvider clock)
+    EmailQueue emails,
+    TimeProvider clock,
+    ILogger<AuthService> logger)
 {
+    private static readonly TimeSpan ResetCodeLifetime = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan ResetCodeCooldown = TimeSpan.FromSeconds(60);
+    private const int MaxResetAttempts = 5;
+
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
         if (request.Role == UserRole.Admin)
@@ -114,6 +123,129 @@ public class AuthService(
         existing.ReplacedByTokenId = newToken.Id;
         await db.SaveChangesAsync(ct);
         return response;
+    }
+
+    // ---- Forgot password ----
+
+    public async Task ForgotPasswordAsync(string email, CancellationToken ct)
+    {
+        var normalized = NormalizeEmail(email);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == normalized && u.DeletedAt == null && u.BannedAt == null, ct);
+        if (user is null)
+        {
+            // Same answer to the app as for a real account; only the log says why nothing was sent.
+            logger.LogInformation("Password reset asked for an email with no active account; no code sent.");
+            return;
+        }
+
+        var now = clock.GetUtcNow();
+        // A double tap or an impatient "resend" shouldn't flood the inbox (or our Resend quota).
+        if (await db.PasswordResetCodes.AnyAsync(c => c.UserId == user.Id && c.CreatedAt > now - ResetCodeCooldown, ct))
+        {
+            logger.LogInformation("Password reset asked again within a minute for user {UserId}; no new code sent.", user.Id);
+            return;
+        }
+
+        // Only the newest code works.
+        await db.PasswordResetCodes
+            .Where(c => c.UserId == user.Id && c.UsedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedAt, now), ct);
+
+        var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+        db.PasswordResetCodes.Add(new PasswordResetCode
+        {
+            UserId = user.Id,
+            CodeHash = HashResetCode(user.Id, code),
+            CreatedAt = now,
+            ExpiresAt = now + ResetCodeLifetime,
+        });
+        await db.SaveChangesAsync(ct);
+
+        emails.Enqueue(ResetCodeEmail(user, code));
+    }
+
+    public async Task<AuthResponse> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
+    {
+        var email = NormalizeEmail(request.Email);
+        var now = clock.GetUtcNow();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null && u.BannedAt == null, ct);
+        var resetCode = user is null
+            ? null
+            : await db.PasswordResetCodes
+                .Where(c => c.UserId == user.Id && c.UsedAt == null)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+
+        // No account and no code look the same as a wrong code.
+        if (user is null || resetCode is null)
+            throw InvalidCode();
+        if (resetCode.ExpiresAt <= now)
+            throw ApiException.BadRequest("That code has expired. Ask for a new one.", "code_expired");
+        if (resetCode.Attempts >= MaxResetAttempts)
+            throw TooManyAttempts();
+
+        var expected = Encoding.ASCII.GetBytes(resetCode.CodeHash);
+        var actual = Encoding.ASCII.GetBytes(HashResetCode(user.Id, request.Code));
+        if (!CryptographicOperations.FixedTimeEquals(expected, actual))
+        {
+            resetCode.Attempts++;
+            await db.SaveChangesAsync(ct);
+            throw resetCode.Attempts >= MaxResetAttempts ? TooManyAttempts() : InvalidCode();
+        }
+
+        resetCode.UsedAt = now;
+        user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
+        // Whoever knew the old password is logged out everywhere.
+        await db.RefreshTokens
+            .Where(t => t.UserId == user.Id && t.RevokedAt == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+
+        var response = IssueTokens(user, familyId: Guid.NewGuid());
+        await db.SaveChangesAsync(ct);
+        return response;
+    }
+
+    /// <summary>
+    /// HMAC with a key derived from the JWT signing key. A plain hash of a 6-digit code could be reversed
+    /// by trying all million codes, so a leaked database alone mustn't be enough.
+    /// </summary>
+    private string HashResetCode(Guid userId, string code)
+    {
+        var key = SHA256.HashData(Encoding.UTF8.GetBytes("password-reset:" + jwtOptions.Value.SigningKey));
+        var mac = HMACSHA256.HashData(key, Encoding.UTF8.GetBytes($"{userId:N}:{code}"));
+        return Convert.ToHexStringLower(mac);
+    }
+
+    private static ApiException InvalidCode() =>
+        ApiException.BadRequest("That code isn't right. Check the email and try again.", "invalid_code");
+
+    private static ApiException TooManyAttempts() =>
+        ApiException.BadRequest("Too many wrong tries. Ask for a new code.", "too_many_attempts");
+
+    private static EmailMessage ResetCodeEmail(User user, string code)
+    {
+        var minutes = (int)ResetCodeLifetime.TotalMinutes;
+        var name = System.Net.WebUtility.HtmlEncode(user.FirstName);
+        var text = $"""
+            Hi {user.FirstName},
+
+            Your JOYRIDR password reset code is {code}
+
+            Enter it in the app within {minutes} minutes. If you didn't ask to reset your password, you can ignore this email; your password stays the same.
+
+            JOYRIDR
+            """;
+        var html = $"""
+            <div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#111">
+              <p style="font-size:22px;font-weight:800;letter-spacing:2px;margin:0 0 24px">JOYRIDR</p>
+              <p style="font-size:16px;margin:0 0 16px">Hi {name},</p>
+              <p style="font-size:16px;margin:0 0 16px">Your password reset code is:</p>
+              <p style="font-size:36px;font-weight:700;letter-spacing:8px;margin:0 0 16px;font-family:Menlo,Consolas,monospace">{code}</p>
+              <p style="font-size:14px;color:#555;margin:0 0 8px">Enter it in the app within {minutes} minutes.</p>
+              <p style="font-size:14px;color:#555;margin:0">If you didn't ask to reset your password, you can ignore this email; your password stays the same.</p>
+            </div>
+            """;
+        return new EmailMessage(user.Email, $"Your JOYRIDR code: {code}", html, text);
     }
 
     public async Task LogoutAsync(string refreshToken, CancellationToken ct)
