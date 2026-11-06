@@ -42,13 +42,13 @@ public record ReportDto(
     ReportKind Kind,
     ReportReason Reason,
     string? Details,
-    /// <summary>The message or review text as it was when reported.</summary>
+    // The message or review text as it was when reported.
     string? ContentSnapshot,
-    /// <summary>False once the message or review has been removed. Always false for user reports.</summary>
+    // False once the message or review has been removed. Always false for user reports.
     bool ContentExists,
     ReportUserDto Reporter,
     ReportUserDto ReportedUser,
-    /// <summary>All open reports about the same user, including this one.</summary>
+    // All open reports about the same user, including this one.
     int OpenReportsAboutUser,
     ReportStatus Status,
     DateTimeOffset CreatedAt,

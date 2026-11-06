@@ -98,6 +98,7 @@ public class AccountService(
 
         // ---- Sessions, devices, inbox, blocks ----
         await db.RefreshTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(ct);
+        await db.PasswordResetCodes.Where(c => c.UserId == userId).ExecuteDeleteAsync(ct);
         await db.DeviceTokens.Where(t => t.UserId == userId).ExecuteDeleteAsync(ct);
         await db.Notifications.Where(n => n.UserId == userId).ExecuteDeleteAsync(ct);
         await db.UserBlocks.Where(b => b.BlockerId == userId || b.BlockedId == userId).ExecuteDeleteAsync(ct);

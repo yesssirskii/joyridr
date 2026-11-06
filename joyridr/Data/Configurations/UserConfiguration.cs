@@ -61,3 +61,14 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
         b.HasOne(t => t.User).WithMany(u => u.RefreshTokens).HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public class PasswordResetCodeConfiguration : IEntityTypeConfiguration<PasswordResetCode>
+{
+    public void Configure(EntityTypeBuilder<PasswordResetCode> b)
+    {
+        b.Property(c => c.CodeHash).HasMaxLength(64);
+        b.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
+        // "The user's newest code".
+        b.HasIndex(c => new { c.UserId, c.CreatedAt });
+    }
+}

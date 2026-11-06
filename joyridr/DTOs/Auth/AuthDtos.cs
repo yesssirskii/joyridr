@@ -18,6 +18,13 @@ public record LoginRequest(
 
 public record RefreshRequest([Required] string RefreshToken);
 
+public record ForgotPasswordRequest([Required, EmailAddress, MaxLength(256)] string Email);
+
+public record ResetPasswordRequest(
+    [Required, EmailAddress, MaxLength(256)] string Email,
+    [Required, RegularExpression("^[0-9]{6}$", ErrorMessage = "The code is the 6 digits from the email.")] string Code,
+    [Required, MinLength(8, ErrorMessage = "Your new password needs at least 8 characters."), MaxLength(128)] string NewPassword);
+
 public record AuthResponse(
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAt,

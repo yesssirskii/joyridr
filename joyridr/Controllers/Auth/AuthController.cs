@@ -23,6 +23,24 @@ public class AuthController(AuthService auth) : ApiControllerBase
     [HttpPost("refresh")]
     public Task<AuthResponse> Refresh(RefreshRequest request, CancellationToken ct) => auth.RefreshAsync(request.RefreshToken, ct);
 
+    /// <summary>
+    /// Email a 6-digit code for resetting the password. Always answers 204, whether or not the email has an
+    /// account, so it can't be used to find out who's signed up. One code per minute at most.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await auth.ForgotPasswordAsync(request.Email, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Set a new password with the emailed code. Logs out every other device and returns new tokens, so the
+    /// user is logged in straight away. Fails with "invalid_code", "code_expired" or "too_many_attempts".
+    /// </summary>
+    [HttpPost("reset-password")]
+    public Task<AuthResponse> ResetPassword(ResetPasswordRequest request, CancellationToken ct) => auth.ResetPasswordAsync(request, ct);
+
     /// <summary>Revoke a refresh token (log out on this device).</summary>
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(RefreshRequest request, CancellationToken ct)

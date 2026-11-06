@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider c
     public DbSet<JoyRiderProfile> RiderProfiles => Set<JoyRiderProfile>();
     public DbSet<JoyDriverProfile> DriverProfiles => Set<JoyDriverProfile>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
     public DbSet<Car> Cars => Set<Car>();
     public DbSet<CarPhoto> CarPhotos => Set<CarPhoto>();
     public DbSet<DriverWeeklyAvailability> DriverWeeklyAvailability => Set<DriverWeeklyAvailability>();
