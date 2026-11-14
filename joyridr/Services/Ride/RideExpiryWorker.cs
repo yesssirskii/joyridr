@@ -13,7 +13,7 @@ public class RideExpiryWorker(IServiceScopeFactory scopeFactory, ILogger<RideExp
                 await using var scope = scopeFactory.CreateAsyncScope();
                 var expired = await scope.ServiceProvider.GetRequiredService<RideService>().ExpireStaleAsync(stoppingToken);
                 if (expired > 0)
-                    logger.LogInformation("Expired {Count} stale ride(s)", expired);
+                    logger.LogInformation("Expired or closed {Count} stale ride(s)", expired);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

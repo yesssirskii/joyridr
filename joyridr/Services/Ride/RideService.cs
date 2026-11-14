@@ -18,6 +18,9 @@ namespace Joyridr.Services;
 ///        │                     └──no answer in time──▶ Expired             │
 ///        └──payment not finished──▶ Expired       (rider/driver cancels)──▶ Cancelled
 /// </code>
+/// Rides left behind once their booked time is over are closed automatically (see <c>CloseOverdueAsync</c>):
+/// Confirmed but never started → Cancelled with a full refund; InProgress never completed → Completed.
+///
 /// </summary>
 public class RideService(
     AppDbContext db,
@@ -308,6 +311,9 @@ public class RideService(
         var now = clock.GetUtcNow();
         if (now < ride.StartsAt.AddMinutes(-30))
             throw ApiException.BadRequest("A ride can be started at most 30 minutes early.", "too_early");
+        // Once the booked time is over the ride is closed and the rider refunded (see CloseOverdueAsync).
+        if (now >= ride.EndsAt)
+            throw ApiException.Conflict("The time booked for this ride is over.", "ride_time_over");
 
         ride.Status = RideStatus.InProgress;
         ride.StartedAt = now;
@@ -321,15 +327,20 @@ public class RideService(
         EnsureDriver(ride, driverId);
         EnsureStatus(ride, RideStatus.InProgress);
 
+        MarkCompleted(ride, clock.GetUtcNow());
+        return await SaveAndReturnAsync(ride, driverId, ct);
+    }
+
+    private void MarkCompleted(Ride ride, DateTimeOffset now)
+    {
         ride.Status = RideStatus.Completed;
-        ride.CompletedAt = clock.GetUtcNow();
+        ride.CompletedAt = now;
         ride.Driver.DriverProfile!.CompletedRides++;
         if (ride.Rider.RiderProfile is not null)
             ride.Rider.RiderProfile.CompletedRides++;
 
         notifications.Add(ride.RiderId, NotificationType.RideCompleted, "How was your ride?",
             $"Rate your ride with {UserNames.Display(ride.Driver)} in the {CarName(ride.Car)}.", ride.Id);
-        return await SaveAndReturnAsync(ride, driverId, ct);
     }
 
     public async Task<ReviewDto> AddReviewAsync(Guid userId, Guid rideId, CreateReviewRequest request, CancellationToken ct)
@@ -393,8 +404,14 @@ public class RideService(
 
         var query = RidesWithDetails().AsNoTracking();
         query = role == UserRole.JoyDriver ? query.Where(r => r.DriverId == userId) : query.Where(r => r.RiderId == userId);
+        var timedOutSince = clock.GetUtcNow().AddDays(-_options.TimedOutVisibleDays);
         query = view switch
         {
+            // Only CloseOverdueAsync cancels without a CancelledById.
+            RideListView.TimedOut => query
+                .Where(r => r.Status == RideStatus.Cancelled && r.CancelledById == null && r.StartedAt == null
+                            && r.CancelledAt >= timedOutSince)
+                .OrderByDescending(r => r.CancelledAt),
             RideListView.Upcoming => query.Where(r => Ride.BlockingStatuses.Contains(r.Status)).OrderBy(r => r.StartsAt),
             RideListView.Past => query.Where(r => Ride.FinishedStatuses.Contains(r.Status)).OrderByDescending(r => r.StartsAt),
             RideListView.Requests => query.Where(r => r.Status == RideStatus.Requested).OrderBy(r => r.RespondBy),
@@ -451,10 +468,61 @@ public class RideService(
             }
         }
 
+        var overdue = await CloseOverdueAsync(now, ct);
         await RemindDriversAsync(now, ct);
 
         await notifications.SendPushesAsync(ct);
-        return stale.Count;
+        return stale.Count + overdue;
+    }
+
+    /// <summary>
+    /// Closes rides whose booked time has passed without the driver moving them on:
+    /// <list type="bullet">
+    /// <item>Confirmed but never started by the booked end → cancelled with a full refund, like a driver no-show.
+    /// <c>CancelledById</c> stays empty, which tells the app the system closed it.</item>
+    /// <item>Started but never marked complete → completed <see cref="RideOptions.AutoCompleteAfterMinutes"/> after the booked end.</item>
+    /// </list>
+    /// </summary>
+    private async Task<int> CloseOverdueAsync(DateTimeOffset now, CancellationToken ct)
+    {
+        var completeBefore = now.AddMinutes(-_options.AutoCompleteAfterMinutes);
+        var overdue = await RidesWithDetails()
+            .Where(r => (r.Status == RideStatus.Confirmed && r.EndsAt <= now)
+                        || (r.Status == RideStatus.InProgress && r.EndsAt <= completeBefore))
+            .OrderBy(r => r.EndsAt)
+            .Take(100)
+            .ToListAsync(ct);
+
+        foreach (var ride in overdue)
+        {
+            try
+            {
+                if (ride.Status == RideStatus.Confirmed)
+                {
+                    await RefundAsync(ride.Payment!, ride.Payment!.Amount, now, ct);
+                    ride.Status = RideStatus.Cancelled;
+                    ride.CancelledAt = now;
+                    ride.CancellationReason = "Not started before the booked time ended.";
+                    notifications.Add(ride.RiderId, NotificationType.RideCancelled, "Ride didn't happen",
+                        $"Your ride in the {CarName(ride.Car)} on {FormatStart(ride)} was never started. You'll get a full refund.", ride.Id);
+                    notifications.Add(ride.DriverId, NotificationType.RideCancelled, "Ride closed",
+                        $"You didn't start the ride on {FormatStart(ride)}, so it was closed and {UserNames.Display(ride.Rider)} got a full refund.", ride.Id);
+                }
+                else
+                {
+                    MarkCompleted(ride, now);
+                }
+
+                await db.SaveChangesAsync(ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Failed to close overdue ride {RideId}", ride.Id);
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        return overdue.Count;
     }
 
     /// <summary>Nudges drivers whose requests are about to expire. Each ride gets one reminder.</summary>
