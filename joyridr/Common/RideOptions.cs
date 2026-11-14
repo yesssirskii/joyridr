@@ -29,4 +29,13 @@ public class RideOptions
 
     /// <summary>A rider who cancels a confirmed ride at least this many hours before the start gets a full refund.</summary>
     public int FreeCancellationHours { get; set; } = 24;
+
+    /// <summary>
+    /// A started ride that the driver never marks complete is completed automatically this long after
+    /// its booked end, which leaves room for running a bit over.
+    /// </summary>
+    public int AutoCompleteAfterMinutes { get; set; } = 60;
+
+    /// <summary>How long a timed-out ride stays in the "Timed-out rides" list under Upcoming.</summary>
+    public int TimedOutVisibleDays { get; set; } = 7;
 }

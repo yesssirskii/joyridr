@@ -31,7 +31,12 @@ public enum RideListView
     /// <summary>Completed, declined, cancelled or expired. Most recent first.</summary>
     Past,
     /// <summary>Driver only: requests waiting for a confirm/decline. Most urgent first.</summary>
-    Requests
+    Requests,
+    /// <summary>
+    /// Confirmed rides that were never started, so the system closed them and refunded the rider,
+    /// in the last <c>Rides:TimedOutVisibleDays</c>. Most recent first. (They're in Past as well.)
+    /// </summary>
+    TimedOut
 }
 
 public record MeetingPointDto(MeetingPointType Type, double? Latitude, double? Longitude, string? Address);
