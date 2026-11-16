@@ -34,6 +34,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options
 builder.Services.Configure<JwtOptions>(config.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<RideOptions>(config.GetSection(RideOptions.SectionName));
 builder.Services.Configure<EmailOptions>(config.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<StripeOptions>(config.GetSection(StripeOptions.SectionName));
 var jwt = config.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 if (string.IsNullOrWhiteSpace(jwt.SigningKey) || jwt.SigningKey.Length < 32)
     throw new InvalidOperationException("Jwt:SigningKey must be set and at least 32 characters long.");
@@ -120,7 +121,17 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
-builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
+// Real card payments once a Stripe secret key is set; otherwise every payment succeeds at once (handy on Local).
+var stripeSecretKey = config[$"{StripeOptions.SectionName}:SecretKey"];
+if (string.IsNullOrWhiteSpace(stripeSecretKey))
+{
+    builder.Services.AddSingleton<IPaymentProvider, FakePaymentProvider>();
+}
+else
+{
+    builder.Services.AddSingleton<Stripe.IStripeClient>(new Stripe.StripeClient(stripeSecretKey));
+    builder.Services.AddSingleton<IPaymentProvider, StripePaymentProvider>();
+}
 builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 // Real emails once a Resend key is set; otherwise they're written to the log.
 if (string.IsNullOrWhiteSpace(config[$"{EmailOptions.SectionName}:ResendApiKey"]))
