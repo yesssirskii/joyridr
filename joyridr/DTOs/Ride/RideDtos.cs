@@ -47,6 +47,19 @@ public record RideParticipantDto(Guid Id, string DisplayName, string? AvatarUrl,
 /// <summary><see cref="ClientSecret"/> is only set right after booking, when a real payment provider needs the app to finish paying.</summary>
 public record PaymentDto(PaymentStatus Status, decimal Amount, decimal RefundedAmount, string Currency, string? ClientSecret);
 
+/// <summary>
+/// Everything the app needs to show Stripe's payment sheet (cards and Apple Pay) for one ride.
+/// The publishable key comes from here so it isn't built into the app.
+/// </summary>
+public record PaymentSheetDto(
+    string ClientSecret,
+    string PublishableKey,
+    string MerchantDisplayName,
+    string ApplePayMerchantId,
+    string MerchantCountryCode,
+    decimal Amount,
+    string Currency);
+
 public record ReviewDto(Guid Id, int Rating, string? Comment, string AuthorName, string? AuthorAvatarUrl, DateTimeOffset CreatedAt)
 {
     public static ReviewDto From(Review r) =>

@@ -49,6 +49,29 @@ Use a different database? Override the connection string without editing files:
 dotnet user-secrets --project joyridr set ConnectionStrings:Default "Host=localhost;Database=joyridr;Username=me"
 ```
 
+### Payments (Stripe)
+
+Without Stripe keys every payment succeeds at once (`FakePaymentProvider`), which is fine for local work.
+To take test-mode card and Apple Pay payments, add the keys from the Stripe dashboard (Developers › API keys)
+as user-secrets locally, or as `Stripe__SecretKey` / `Stripe__PublishableKey` / `Stripe__WebhookSecret`
+variables in Railway. Never commit them.
+
+```bash
+dotnet user-secrets --project joyridr set Stripe:SecretKey "sk_test_..."
+```
+
+```bash
+dotnet user-secrets --project joyridr set Stripe:PublishableKey "pk_test_..."
+```
+
+The app checks the payment itself after the payment sheet closes (`POST /api/rides/{id}/payment/sync`), so
+locally you don't need webhooks. On a server, add a webhook endpoint in Stripe pointing at
+`https://<host>/api/payments/stripe/webhook` with the events `payment_intent.amount_capturable_updated`,
+`payment_intent.payment_failed` and `payment_intent.canceled`, and set its signing secret as `Stripe__WebhookSecret`.
+
+Test cards: `4242 4242 4242 4242` (works), `4000 0025 0000 3155` (asks for 3-D Secure), `4000 0000 0000 0002` (declined);
+any future expiry date and any CVC.
+
 Run the tests:
 
 ```bash

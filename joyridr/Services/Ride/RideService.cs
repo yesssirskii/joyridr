@@ -28,6 +28,7 @@ public class RideService(
     IPaymentProvider payments,
     NotificationService notifications,
     IOptions<RideOptions> rideOptions,
+    IOptions<StripeOptions> stripeOptions,
     TimeProvider clock,
     ILogger<RideService> logger)
 {
@@ -112,6 +113,87 @@ public class RideService(
         await db.SaveChangesAsync(ct);
         await notifications.SendPushesAsync(ct);
         return await GetAsync(riderId, ride.Id, ct, result.ClientSecret);
+    }
+
+    /// <summary>
+    /// What the app needs to show the payment sheet for a ride that's still waiting for payment:
+    /// right after booking, or again if the rider closed the app before paying.
+    /// </summary>
+    public async Task<PaymentSheetDto> GetPaymentSheetAsync(Guid riderId, Guid rideId, CancellationToken ct)
+    {
+        var ride = await RidesWithDetails().AsNoTracking().FirstOrDefaultAsync(r => r.Id == rideId, ct);
+        if (ride is null || ride.RiderId != riderId)
+            throw ApiException.NotFound("Ride");
+        EnsureStatus(ride, RideStatus.AwaitingPayment);
+
+        var clientSecret = ride.Payment?.ProviderPaymentId is { } id ? await payments.GetClientSecretAsync(id, ct) : null;
+        if (clientSecret is null)
+            throw ApiException.Conflict("This ride doesn't need a payment from the app.", "no_payment_needed");
+
+        var stripe = stripeOptions.Value;
+        return new PaymentSheetDto(clientSecret, stripe.PublishableKey ?? "", stripe.MerchantDisplayName,
+            stripe.ApplePayMerchantId, stripe.MerchantCountryCode, ride.Price, ride.Currency);
+    }
+
+    /// <summary>
+    /// Called by the app after the payment sheet finishes: asks the provider whether the money is held
+    /// and, if so, sends the request to the driver. The webhook does the same; whichever comes first wins.
+    /// </summary>
+    public async Task<RideDto> SyncPaymentAsync(Guid riderId, Guid rideId, CancellationToken ct)
+    {
+        var ride = await LoadForUpdateAsync(rideId, ct);
+        if (ride.RiderId != riderId)
+            throw ApiException.NotFound("Ride");
+        await SyncPaymentAsync(ride, ct);
+        return RideDto.From(ride, riderId);
+    }
+
+    /// <summary>The webhook's way in: Stripe tells us something happened to a payment.</summary>
+    public async Task SyncPaymentByProviderIdAsync(string providerPaymentId, CancellationToken ct)
+    {
+        var ride = await RidesWithDetails().FirstOrDefaultAsync(r => r.Payment!.ProviderPaymentId == providerPaymentId, ct);
+        if (ride is null)
+        {
+            logger.LogWarning("Payment webhook for unknown payment {PaymentId}", providerPaymentId);
+            return;
+        }
+        await SyncPaymentAsync(ride, ct);
+    }
+
+    private async Task SyncPaymentAsync(Ride ride, CancellationToken ct)
+    {
+        if (ride.Status != RideStatus.AwaitingPayment || ride.Payment is not { Status: PaymentStatus.Pending, ProviderPaymentId: { } id })
+            return;
+
+        var (state, lastError) = await payments.GetStateAsync(id, ct);
+        var now = clock.GetUtcNow();
+        switch (state)
+        {
+            case ProviderPaymentState.Authorized:
+                MarkPaymentAuthorized(ride, ride.Driver, now);
+                break;
+            case ProviderPaymentState.Pending:
+                // Still paying, or the card was declined and the rider can try another one.
+                ride.Payment.FailureReason = lastError;
+                break;
+            default:
+                // Captured or canceled outside the normal flow (e.g. in the Stripe dashboard): leave it for
+                // the expiry job, which releases the slot.
+                logger.LogWarning("Payment {PaymentId} for ride {RideId} is {State} while awaiting payment", id, ride.Id, state);
+                return;
+        }
+        ride.Payment.UpdatedAt = now;
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The webhook and the app checked at the same time; the other one already saved it.
+            return;
+        }
+        await notifications.SendPushesAsync(ct);
     }
 
     public async Task<RideDto> ConfirmAsync(Guid driverId, Guid rideId, CancellationToken ct)

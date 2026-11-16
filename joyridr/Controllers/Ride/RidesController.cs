@@ -28,6 +28,19 @@ public class RidesController(RideService rides) : ApiControllerBase
     [HttpGet("{rideId:guid}")]
     public Task<RideDto> Get(Guid rideId, CancellationToken ct) => rides.GetAsync(CurrentUserId, rideId, ct);
 
+    /// <summary>Rider only: what the app needs to show the payment sheet for a ride that's waiting for payment.</summary>
+    [HttpGet("{rideId:guid}/payment-sheet")]
+    [Authorize(Policy = Policies.Rider)]
+    public Task<PaymentSheetDto> PaymentSheet(Guid rideId, CancellationToken ct) => rides.GetPaymentSheetAsync(CurrentUserId, rideId, ct);
+
+    /// <summary>
+    /// Rider only: call after the payment sheet finishes. Checks the payment with the provider and,
+    /// once the money is held, sends the request to the driver (status becomes "requested").
+    /// </summary>
+    [HttpPost("{rideId:guid}/payment/sync")]
+    [Authorize(Policy = Policies.Rider)]
+    public Task<RideDto> SyncPayment(Guid rideId, CancellationToken ct) => rides.SyncPaymentAsync(CurrentUserId, rideId, ct);
+
     /// <summary>Driver accepts a ride request. The rider's payment is captured.</summary>
     [HttpPost("{rideId:guid}/confirm")]
     [Authorize(Policy = Policies.Driver)]

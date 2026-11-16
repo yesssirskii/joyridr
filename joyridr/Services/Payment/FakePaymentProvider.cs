@@ -31,4 +31,10 @@ public class FakePaymentProvider(ILogger<FakePaymentProvider> logger) : IPayment
         logger.LogInformation("Fake payment {PaymentId}: refunded {Amount}", providerPaymentId, amount);
         return Task.CompletedTask;
     }
+
+    // Fake payments are authorized at once, so there's never anything left for the app to do.
+    public Task<(ProviderPaymentState State, string? LastError)> GetStateAsync(string providerPaymentId, CancellationToken ct) =>
+        Task.FromResult((ProviderPaymentState.Authorized, (string?)null));
+
+    public Task<string?> GetClientSecretAsync(string providerPaymentId, CancellationToken ct) => Task.FromResult<string?>(null);
 }
