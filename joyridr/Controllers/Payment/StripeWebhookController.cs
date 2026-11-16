@@ -32,12 +32,16 @@ public class StripeWebhookController(RideService rides, IOptions<StripeOptions> 
         if (string.IsNullOrWhiteSpace(secret))
             return NotFound();
 
+        // Stripe always signs its calls; without the header Stripe's library would crash instead of rejecting it.
+        string? signature = Request.Headers["Stripe-Signature"];
+        if (string.IsNullOrWhiteSpace(signature))
+            return BadRequest();
+
         var json = await new StreamReader(Request.Body).ReadToEndAsync(ct);
         Event stripeEvent;
         try
         {
-            stripeEvent = EventUtility.ConstructEvent(json, Request.Headers["Stripe-Signature"], secret,
-                throwOnApiVersionMismatch: false);
+            stripeEvent = EventUtility.ConstructEvent(json, signature, secret, throwOnApiVersionMismatch: false);
         }
         catch (StripeException ex)
         {
