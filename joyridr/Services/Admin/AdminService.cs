@@ -28,8 +28,8 @@ public class AdminService(AppDbContext db, CarService cars, RideService rides, N
         return list.Select(c => CarDetailDto.From(c, isOwner: true)).ToList();
     }
 
-    public Task<PagedResult<RideDto>> ListRidesAsync(Guid adminId, int page, int pageSize, CancellationToken ct) =>
-        rides.ListAllAsync(adminId, page, pageSize, ct);
+    public Task<PagedResult<RideDto>> ListRidesAsync(Guid adminId, RideListView? view, int page, int pageSize, CancellationToken ct) =>
+        rides.ListAllAsync(adminId, view, page, pageSize, ct);
 
     private IQueryable<Car> CarsWithDetails() =>
         db.Cars

@@ -486,8 +486,35 @@ public class RideService(
 
         var query = RidesWithDetails().AsNoTracking();
         query = role == UserRole.JoyDriver ? query.Where(r => r.DriverId == userId) : query.Where(r => r.RiderId == userId);
+        query = FilterByView(query, view);
+
+        var total = await query.CountAsync(ct);
+        var rides = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, userId)).ToList(), page, pageSize, total);
+    }
+
+    /// <summary>
+    /// Every ride on the platform, whoever booked or drives it. Only for admins (the controller checks).
+    /// With a view, it's filtered and sorted the same way as My rides; without one, it's all of them,
+    /// latest start first (what build 5 of the app asks for).
+    /// </summary>
+    public async Task<PagedResult<RideDto>> ListAllAsync(Guid viewerId, RideListView? view, int page, int pageSize, CancellationToken ct)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = RidesWithDetails().AsNoTracking();
+        query = view is { } v ? FilterByView(query, v) : query.OrderByDescending(r => r.StartsAt);
+        var total = await query.CountAsync(ct);
+        var rides = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, viewerId)).ToList(), page, pageSize, total);
+    }
+
+    /// <summary>The filter and sort order behind each My rides view, shared with the admin's All rides.</summary>
+    private IQueryable<Ride> FilterByView(IQueryable<Ride> query, RideListView view)
+    {
         var timedOutSince = clock.GetUtcNow().AddDays(-_options.TimedOutVisibleDays);
-        query = view switch
+        return view switch
         {
             // Only CloseOverdueAsync cancels without a CancelledById.
             RideListView.TimedOut => query
@@ -499,22 +526,6 @@ public class RideService(
             RideListView.Requests => query.Where(r => r.Status == RideStatus.Requested).OrderBy(r => r.RespondBy),
             _ => throw ApiException.BadRequest("Unknown view.", "invalid_view"),
         };
-
-        var total = await query.CountAsync(ct);
-        var rides = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, userId)).ToList(), page, pageSize, total);
-    }
-
-    /// <summary>Every ride on the platform, latest start first. Only for admins (the controller checks).</summary>
-    public async Task<PagedResult<RideDto>> ListAllAsync(Guid viewerId, int page, int pageSize, CancellationToken ct)
-    {
-        page = Math.Max(page, 1);
-        pageSize = Math.Clamp(pageSize, 1, 100);
-
-        var query = RidesWithDetails().AsNoTracking().OrderByDescending(r => r.StartsAt);
-        var total = await query.CountAsync(ct);
-        var rides = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, viewerId)).ToList(), page, pageSize, total);
     }
 
     /// <summary>

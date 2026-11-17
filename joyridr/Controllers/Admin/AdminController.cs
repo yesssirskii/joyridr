@@ -21,10 +21,13 @@ public class AdminController(AdminService admin) : ApiControllerBase
     [HttpGet("cars/all")]
     public Task<List<CarDetailDto>> ListAllCars(CancellationToken ct) => admin.ListAllCarsAsync(ct);
 
-    /// <summary>Every ride on the platform, latest start first, a page at a time.</summary>
+    /// <summary>
+    /// Every ride on the platform, a page at a time. Pass a view (Upcoming, Past, TimedOut) to filter it
+    /// like My rides; leave it out for all rides, latest start first.
+    /// </summary>
     [HttpGet("rides")]
-    public Task<PagedResult<RideDto>> ListRides(CancellationToken ct, int page = 1, int pageSize = 50) =>
-        admin.ListRidesAsync(CurrentUserId, page, pageSize, ct);
+    public Task<PagedResult<RideDto>> ListRides(CancellationToken ct, RideListView? view = null, int page = 1, int pageSize = 50) =>
+        admin.ListRidesAsync(CurrentUserId, view, page, pageSize, ct);
 
     /// <summary>Approve a car so riders can book it.</summary>
     [HttpPost("cars/{carId:guid}/approve")]
