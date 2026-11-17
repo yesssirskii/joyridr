@@ -505,6 +505,18 @@ public class RideService(
         return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, userId)).ToList(), page, pageSize, total);
     }
 
+    /// <summary>Every ride on the platform, latest start first. Only for admins (the controller checks).</summary>
+    public async Task<PagedResult<RideDto>> ListAllAsync(Guid viewerId, int page, int pageSize, CancellationToken ct)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = RidesWithDetails().AsNoTracking().OrderByDescending(r => r.StartsAt);
+        var total = await query.CountAsync(ct);
+        var rides = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return new PagedResult<RideDto>(rides.Select(r => RideDto.From(r, viewerId)).ToList(), page, pageSize, total);
+    }
+
     /// <summary>
     /// Called every minute by <see cref="RideExpiryWorker"/>: releases slots whose payment was never
     /// finished, expires requests the driver didn't answer in time, and reminds drivers about requests
