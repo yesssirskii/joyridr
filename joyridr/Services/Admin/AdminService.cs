@@ -12,15 +12,32 @@ public class AdminService(AppDbContext db, CarService cars, RideService rides, N
 {
     public async Task<List<CarDetailDto>> ListCarsAsync(CarStatus status, CancellationToken ct)
     {
-        var list = await db.Cars
-            .Include(c => c.Photos)
-            .Include(c => c.Driver).ThenInclude(d => d.User)
-            .Where(c => c.Status == status && c.DeletedAt == null)
+        var list = await CarsWithDetails()
+            .Where(c => c.Status == status)
             .OrderBy(c => c.UpdatedAt)
-            .AsSplitQuery()
             .ToListAsync(ct);
         return list.Select(c => CarDetailDto.From(c, isOwner: true)).ToList();
     }
+
+    /// <summary>Every car that isn't deleted, newest first. Fine while the platform is small; page it once it grows.</summary>
+    public async Task<List<CarDetailDto>> ListAllCarsAsync(CancellationToken ct)
+    {
+        var list = await CarsWithDetails()
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(ct);
+        return list.Select(c => CarDetailDto.From(c, isOwner: true)).ToList();
+    }
+
+    public Task<PagedResult<RideDto>> ListRidesAsync(Guid adminId, int page, int pageSize, CancellationToken ct) =>
+        rides.ListAllAsync(adminId, page, pageSize, ct);
+
+    private IQueryable<Car> CarsWithDetails() =>
+        db.Cars
+            .Include(c => c.Photos)
+            .Include(c => c.Driver).ThenInclude(d => d.User)
+            .Where(c => c.DeletedAt == null)
+            .AsNoTracking()
+            .AsSplitQuery();
 
     public async Task<CarDetailDto> ApproveCarAsync(Guid carId, CancellationToken ct)
     {

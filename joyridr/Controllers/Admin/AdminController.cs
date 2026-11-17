@@ -17,6 +17,15 @@ public class AdminController(AdminService admin) : ApiControllerBase
     public Task<List<CarDetailDto>> ListCars(CancellationToken ct, CarStatus status = CarStatus.PendingReview) =>
         admin.ListCarsAsync(status, ct);
 
+    /// <summary>Every car on the platform whatever its status, newest first.</summary>
+    [HttpGet("cars/all")]
+    public Task<List<CarDetailDto>> ListAllCars(CancellationToken ct) => admin.ListAllCarsAsync(ct);
+
+    /// <summary>Every ride on the platform, latest start first, a page at a time.</summary>
+    [HttpGet("rides")]
+    public Task<PagedResult<RideDto>> ListRides(CancellationToken ct, int page = 1, int pageSize = 50) =>
+        admin.ListRidesAsync(CurrentUserId, page, pageSize, ct);
+
     /// <summary>Approve a car so riders can book it.</summary>
     [HttpPost("cars/{carId:guid}/approve")]
     public Task<CarDetailDto> ApproveCar(Guid carId, CancellationToken ct) => admin.ApproveCarAsync(carId, ct);
